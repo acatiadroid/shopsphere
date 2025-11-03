@@ -2,7 +2,7 @@
 // Simple database connection
 $serverName = "tcp:mycardiffmet.database.windows.net,1433";
 $connectionOptions = array(
-  "Database" => "myDatabase",
+  "Database" => "luke-database",
   "Uid" => "myadmin",
   "PWD" => "Abcdefgh0!",
   "Encrypt" => 1,
