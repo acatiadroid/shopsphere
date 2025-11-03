@@ -1,6 +1,6 @@
 <?php
 // Simple database connection
-$serverName = "tcp:shopsphere.database.windows.net,1433";
+$serverName = "tcp:luke-shopsphere.database.windows.net,1433";
 $connectionOptions = [
     "Database" => "luke-database",
     "Uid" => "myadmin",
