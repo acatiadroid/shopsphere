@@ -10,7 +10,7 @@ import pyodbc
 
 app = func.FunctionApp()
 
-# Database connection string.
+# Database connection string..
 db_conn = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=luke-shopsphere.database.windows.net;DATABASE=luke-database;UID=myadmin;PWD=Abcdefgh0!;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
 
 def get_db_connection():
