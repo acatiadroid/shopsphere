@@ -13,9 +13,11 @@ app = func.FunctionApp()
 # Database connection string.
 db_conn = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=luke-shopsphere.database.windows.net;DATABASE=luke-database;UID=myadmin;PWD=Abcdefgh0!;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
 
+
 def get_db_connection():
     """Create database connection"""
     return pyodbc.connect(db_conn)
+
 
 def hash_password(password, salt=None):
     """Hash password with salt"""
@@ -107,7 +109,7 @@ def handle_signup(data):
         )
         conn.commit()
 
-        user_id = cursor.execute("SELECT @@IDENTITY").fetchone()[0]
+        user_id = int(cursor.execute("SELECT @@IDENTITY").fetchone()[0])
 
         # Create session
         session_token = generate_session_token()
@@ -175,6 +177,7 @@ def handle_login(data):
             )
 
         user_id, email, name, password_hash, salt = user
+        user_id = int(user_id)
 
         # Verify password
         if not verify_password(password, password_hash, salt):
@@ -284,6 +287,7 @@ def handle_verify_session(data):
             )
 
         user_id, email, name, expires_at = result
+        user_id = int(user_id)
 
         # Check if session expired
         if expires_at < datetime.utcnow():

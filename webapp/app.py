@@ -108,7 +108,14 @@ def signup():
             )
 
             if response.ok:
-                data = response.json()
+                try:
+                    data = response.json()
+                except ValueError:
+                    flash(
+                        f"Invalid response from server: {response.text[:200]}", "danger"
+                    )
+                    return render_template("signup.html")
+
                 session["session_token"] = data["session_token"]
                 session["user"] = {
                     "id": data["user_id"],
@@ -118,8 +125,13 @@ def signup():
                 flash(f"Welcome, {name}!", "success")
                 return redirect(url_for("index"))
             else:
-                error = response.json().get("error", "Signup failed")
+                try:
+                    error = response.json().get("error", "Signup failed")
+                except ValueError:
+                    error = f"Signup failed: {response.text[:200]}"
                 flash(error, "danger")
+        except requests.exceptions.RequestException as e:
+            flash(f"Connection error: {str(e)}", "danger")
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
 
