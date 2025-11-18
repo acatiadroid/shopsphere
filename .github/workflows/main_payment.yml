@@ -83,6 +83,6 @@ jobs:
         uses: Azure/functions-action@v1
         id: deploy-to-function
         with:
-          app-name: "payment-bxehasc6bshbdpd2"
+          app-name: "payment"
           slot-name: "Production"
           package: .
