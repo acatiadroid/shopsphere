@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from functools import wraps
 
-import pyodbc
+import pymssql
 import requests
 from flask import (
     Flask,
@@ -26,14 +26,23 @@ PAYMENT_URL = (
     "https://payment-bxehasc6bshbdpd2.norwayeast-01.azurewebsites.net/api/payment"
 )
 
-# Database connection
-DB_CONNECTION_STRING = os.environ.get("DB_CONNECTION_STRING", "")
+# Database connection settings
+DB_SERVER = os.environ.get("DB_SERVER", "luke-shopsphere.database.windows.net")
+DB_NAME = os.environ.get("DB_NAME", "luke-database")
+DB_USER = os.environ.get("DB_USER", "myadmin")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "Abcdefgh0!")
 CDN_BASE_URL = "https://shopsphere.blob.core.windows.net/cdn/"
 
 
 def get_db_connection():
     """Create database connection"""
-    return pyodbc.connect(DB_CONNECTION_STRING)
+    return pymssql.connect(
+        server=DB_SERVER,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        tds_version="7.4",
+    )
 
 
 def login_required(f):

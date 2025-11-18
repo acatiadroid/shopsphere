@@ -6,17 +6,26 @@ import secrets
 from datetime import datetime, timedelta
 
 import azure.functions as func
-import pyodbc
+import pymssql
 
 app = func.FunctionApp()
 
-# Database connection string.
-db_conn = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=luke-shopsphere.database.windows.net;DATABASE=luke-database;UID=myadmin;PWD=Abcdefgh0!;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+# Database connection settings
+DB_SERVER = "luke-shopsphere.database.windows.net"
+DB_NAME = "luke-database"
+DB_USER = "myadmin"
+DB_PASSWORD = "Abcdefgh0!"
 
 
 def get_db_connection():
     """Create database connection"""
-    return pyodbc.connect(db_conn)
+    return pymssql.connect(
+        server=DB_SERVER,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        tds_version="7.4",
+    )
 
 
 def hash_password(password, salt=None):
