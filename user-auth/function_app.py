@@ -19,7 +19,7 @@ DB_PASSWORD = "Abcdefgh0!"
 def get_db_connection():
     """Create database connection"""
     return pytds.connect(
-        server=DB_SERVER,
+        dsn=DB_SERVER,
         database=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,

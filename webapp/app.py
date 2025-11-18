@@ -37,7 +37,7 @@ CDN_BASE_URL = "https://shopsphere.blob.core.windows.net/cdn/"
 def get_db_connection():
     """Create database connection"""
     return pytds.connect(
-        server=DB_SERVER,
+        dsn=DB_SERVER,
         database=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
