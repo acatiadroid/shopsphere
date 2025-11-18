@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h2">
+            <i class="bi bi-credit-card"></i> Checkout
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('cart') }}">Cart</a></li>
+                <li class="breadcrumb-item active">Checkout</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+{% if cart_items %}
+<form action="{{ url_for('checkout') }}" method="post">
+    <div class="row">
+        <!-- Order Details -->
+        <div class="col-lg-8 mb-4">
+            <!-- Payment Method -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-credit-card"></i> Payment Method
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        <i class="bi bi-info-circle"></i> This is a simulated payment system for demonstration purposes.
+                    </p>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="credit_card" value="credit_card" checked>
+                                <label class="form-check-label" for="credit_card">
+                                    <i class="bi bi-credit-card text-primary"></i> Credit Card
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="debit_card" value="debit_card">
+                                <label class="form-check-label" for="debit_card">
+                                    <i class="bi bi-credit-card-2-front text-success"></i> Debit Card
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="paypal" value="paypal">
+                                <label class="form-check-label" for="paypal">
+                                    <i class="bi bi-paypal text-info"></i> PayPal
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="apple_pay" value="apple_pay">
+                                <label class="form-check-label" for="apple_pay">
+                                    <i class="bi bi-apple text-dark"></i> Apple Pay
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="google_pay" value="google_pay">
+                                <label class="form-check-label" for="google_pay">
+                                    <i class="bi bi-google text-warning"></i> Google Pay
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Items Review -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Order Items ({{ cart_items|length }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Price</th>
+                                    <th>Qty</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cart_items %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-box text-muted me-2"></i>
+                                            <span>{{ item.name }}</span>
+                                        </div>
+                                    </td>
+                                    <td>${{ "%.2f"|format(item.price) }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td><strong>${{ "%.2f"|format(item.subtotal) }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal ({{ cart_items|length }} items)</span>
+                        <strong>${{ "%.2f"|format(total) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Shipping</span>
+                        <strong class="text-success">FREE</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Estimated Tax (10%)</span>
+                        <strong>${{ "%.2f"|format(total * 0.1) }}</strong>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-4">
+                        <h5>Total</h5>
+                        <h5 class="text-primary">${{ "%.2f"|format(total * 1.1) }}</h5>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-lock"></i> Place Order
+                        </button>
+                        <a href="{{ url_for('cart') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Cart
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-light">
+                    <div class="small">
+                        <div class="mb-2">
+                            <i class="bi bi-shield-check text-success"></i> Secure checkout
+                        </div>
+                        <div class="mb-2">
+                            <i class="bi bi-truck text-primary"></i> Free shipping
+                        </div>
+                        <div>
+                            <i class="bi bi-arrow-clockwise text-info"></i> Easy returns
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Notice -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="mb-2">
+                        <i class="bi bi-info-circle text-primary"></i> Virtual Payment Demo
+                    </h6>
+                    <p class="small text-muted mb-0">
+                        This is a simulated payment system. No real transactions will be processed.
+                        The system has a 95% success rate to demonstrate both successful and failed payment scenarios.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% else %}
+<!-- Empty Cart -->
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-warning text-center">
+            <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+            <h4 class="mt-3">Your cart is empty</h4>
+            <p>Add some items to your cart before checking out.</p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="bi bi-shop"></i> Start Shopping
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

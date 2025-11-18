@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping Cart - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h2">
+            <i class="bi bi-cart"></i> Shopping Cart
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item active">Cart</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+{% if cart_items %}
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <!-- Cart Items -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Cart Items ({{ cart_items|length }})</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th>Price</th>
+                                <th>Quantity</th>
+                                <th>Subtotal</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in cart_items %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if item.image_url %}
+                                            <img src="{{ item.image_url }}" alt="{{ item.name }}" class="rounded me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                                <i class="bi bi-image text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-0">{{ item.name }}</h6>
+                                            <small class="text-muted">
+                                                Stock: {{ item.stock_quantity }} available
+                                            </small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="align-middle">
+                                    <strong>${{ "%.2f"|format(item.price) }}</strong>
+                                </td>
+                                <td class="align-middle">
+                                    <form action="{{ url_for('update_cart', cart_item_id=item.id) }}" method="post" class="d-inline">
+                                        <div class="input-group" style="width: 130px;">
+                                            <input type="number" class="form-control form-control-sm" name="quantity" value="{{ item.quantity }}" min="1" max="{{ item.stock_quantity }}" required>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-check"></i>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </td>
+                                <td class="align-middle">
+                                    <strong class="text-primary">${{ "%.2f"|format(item.subtotal) }}</strong>
+                                </td>
+                                <td class="align-middle text-end">
+                                    <form action="{{ url_for('remove_from_cart', cart_item_id=item.id) }}" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this item from cart?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Continue Shopping -->
+        <div class="mt-3">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Continue Shopping
+            </a>
+        </div>
+    </div>
+
+    <!-- Order Summary -->
+    <div class="col-lg-4">
+        <div class="card sticky-top" style="top: 20px;">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Order Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Subtotal</span>
+                    <strong>${{ "%.2f"|format(total) }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Shipping</span>
+                    <strong class="text-success">FREE</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Tax</span>
+                    <strong>${{ "%.2f"|format(total * 0.1) }}</strong>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <h5>Total</h5>
+                    <h5 class="text-primary">${{ "%.2f"|format(total * 1.1) }}</h5>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('checkout') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-credit-card"></i> Proceed to Checkout
+                    </a>
+                    <a href="{{ url_for('wishlist') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-heart"></i> View Wishlist
+                    </a>
+                </div>
+            </div>
+
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="bi bi-shield-check"></i> Secure checkout powered by ShopSphere
+                </small>
+            </div>
+        </div>
+
+        <!-- Shipping Info -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="mb-3">
+                    <i class="bi bi-truck"></i> Shipping Information
+                </h6>
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i> Free shipping on all orders
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i> Estimated delivery: 3-5 business days
+                    </li>
+                    <li></li>
+                        <i class="bi bi-check-circle text-success"></i> Track your order in real-time
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Empty Cart -->
+<div class="row">
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i class="bi bi-cart-x text-muted" style="font-size: 5rem;"></i>
+            <h3 class="mt-4">Your Cart is Empty</h3>
+            <p class="text-muted">Looks like you haven't added any items to your cart yet.</p>
+            <div class="mt-4">
+                <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg me-2">
+                    <i class="bi bi-shop"></i> Start Shopping
+                </a>
+                <a href="{{ url_for('wishlist') }}" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-heart"></i> View Wishlist
+                </a>
+            </div>
+        </div>
+
+        <!-- Featured Categories -->
+        <div class="row mt-5">
+            <div class="col-12 mb-3">
+                <h4>Shop</h4> by Category</h4>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="bi bi-laptop text-primary" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Electronics</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="bi bi-book text-primary" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Books</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="bi bi-house text-primary" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Home & Garden</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="bi bi-controller text-primary" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Gaming</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

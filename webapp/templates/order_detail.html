@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Order #{{ order.id }} - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('orders') }}">Orders</a></li>
+                <li class="breadcrumb-item active">Order #{{ order.id }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <!-- Order Header -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-receipt"></i> Order #{{ order.id }}
+                    </h5>
+                    {% if order.status == 'paid' %}
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> Paid
+                        </span>
+                    {% elif order.status == 'pending' %}
+                        <span class="badge bg-warning">
+                            <i class="bi bi-clock"></i> Pending
+                        </span>
+                    {% elif order.status == 'shipped' %}
+                        <span class="badge bg-info">
+                            <i class="bi bi-truck"></i> Shipped
+                        </span>
+                    {% elif order.status == 'delivered' %}
+                        <span class="badge bg-light text-dark">
+                            <i class="bi bi-box-seam"></i> Delivered
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ order.status }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <h6 class="text-muted mb-1">Order Date</h6>
+                        <p class="mb-0">
+                            <i class="bi bi-calendar"></i>
+                            {{ order.created_at.strftime('%B %d, %Y at %H:%M') if order.created_at else 'N/A' }}
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <h6 class="text-muted mb-1">Payment Date</h6>
+                        <p class="mb-0">
+                            {% if order.paid_at %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                {{ order.paid_at.strftime('%B %d, %Y at %H:%M') }}
+                            {% else %}
+                                <i class="bi bi-x-circle text-muted"></i>
+                                <span class="text-muted">Not paid yet</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-1">Total Amount</h6>
+                        <p class="mb-0">
+                            <strong class="h5 text-primary">${{ "%.2f"|format(order.total_amount) }}</strong>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-1">Order Status</h6>
+                        <p class="mb-0">
+                            <strong class="text-capitalize">{{ order.status }}</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Tracking -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-geo-alt"></i> Order Tracking
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-3" style="height: 30px;">
+                    {% if order.status == 'pending' %}
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: 25%">
+                            <strong>Order Placed</strong>
+                        </div>
+                    {% elif order.status == 'paid' %}
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 50%">
+                            <strong>Payment Confirmed</strong>
+                        </div>
+                    {% elif order.status == 'shipped' %}
+                        <div class="progress-bar bg-info" role="progressbar" style="width: 75%">
+                            <strong>Shipped</strong>
+                        </div>
+                    {% elif order.status == 'delivered' %}
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: 100%">
+                            <strong>Delivered</strong>
+                        </div>
+                    {% else %}
+                        <div class="progress-bar bg-secondary" role="progressbar" style="width: 10%">
+                            <strong>Processing</strong>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="row text-center">
+                    <div class="col-3">
+                        <div class="mb-2">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                        </div>
+                        <small class="text-muted">Order Placed</small>
+                    </div>
+                    <div class="col-3">
+                        <div class="mb-2">
+                            {% if order.status in ['paid', 'shipped', 'delivered'] %}
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                            {% else %}
+                                <i class="bi bi-circle text-muted" style="font-size: 2rem;"></i>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Payment Confirmed</small>
+                    </div>
+                    <div class="col-3">
+                        <div class="mb-2">
+                            {% if order.status in ['shipped', 'delivered'] %}
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                            {% else %}
+                                <i class="bi bi-circle text-muted" style="font-size: 2rem;"></i>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Shipped</small>
+                    </div>
+                    <div class="col-3">
+                        <div class="mb-2">
+                            {% if order.status == 'delivered' %}
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                            {% else %}
+                                <i class="bi bi-circle text-muted" style="font-size: 2rem;"></i>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Delivered</small>
+                    </div>
+                </div>
+
+                {% if order.status == 'paid' %}
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-info-circle"></i> Your order is being prepared for shipment. Estimated delivery: 3-5 business days.
+                </div>
+                {% elif order.status == 'shipped' %}
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-truck"></i> Your order is on the way! Track your package for real-time updates.
+                </div>
+                {% elif order.status == 'delivered' %}
+                <div class="alert alert-success mt-3 mb-0">
+                    <i class="bi bi-check-circle"></i> Your order has been delivered. Thank you for shopping with us!
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Order Items -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Order Items ({{ items|length }})</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th>Price</th>
+                                <th>Quantity</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if item.image_url %}
+                                            <img src="{{ item.image_url }}" alt="{{ item.name }}" class="rounded me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                                <i class="bi bi-image text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-0">{{ item.name }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="align-middle">${{ "%.2f"|format(item.price) }}</td>
+                                <td class="align-middle">{{ item.quantity }}</td>
+                                <td class="align-middle"><strong class="text-primary">${{ "%.2f"|format(item.subtotal) }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Summary Sidebar -->
+    <div class="col-lg-4">
+        <div class="card sticky-top" style="top: 20px;">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Order Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Subtotal</span>
+                    <strong>${{ "%.2f"|format(order.total_amount) }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Shipping</span>
+                    <strong class="text-success">FREE</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Tax (included)</span>
+                    <strong>${{ "%.2f"|format(order.total_amount * 0.1) }}</strong>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <h5></h5>Total Paid</h5>
+                    <h5 class="text-primary">${{ "%.2f"|format(order.total_amount) }}</h5>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('orders') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left"></i> Back to Orders
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-shop"></i> Continue Shopping
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Need Help -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="mb-3">
+                    <i class="bi bi-headset"></i> Need Help?
+                </h6>
+                <p class="small text-muted mb-3">
+                    Our customer support team is here to assist you with any questions about your order.
+                </p>
+                <div class="d-grid">
+                    <button class="btn btn-sm btn-outline-primary" disabled>
+                        <i class="bi bi-envelope"></i> Contact Support
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shipping Info -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="mb-3">
+                    <i class="bi bi-truck"></i> Shipping Details
+                </h6>
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i> Free standard shipping
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i> 3-5 business days delivery
+                    </li>
+                    <li>
+                        <i class="bi bi-check-circle text-success"></i> Real-time tracking
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
