@@ -41,14 +41,14 @@ jobs:
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --target="./.python_packages/lib/site-packages" -r requirements.txt
 
       # Optional: Add step to run tests here
 
       - name: Zip artifact for deployment
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          zip -r ../release.zip ./* --exclude venv/\*
+          zip -r ../release.zip ./* --exclude venv/\* --exclude .venv/\*
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -86,5 +86,3 @@ jobs:
           app-name: "product-catalog"
           slot-name: "Production"
           package: .
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
