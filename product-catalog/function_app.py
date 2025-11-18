@@ -8,7 +8,7 @@ import pytds
 
 app = func.FunctionApp()
 
-# Database connection settings
+# Database connection settings.
 DB_SERVER = "luke-shopsphere.database.windows.net"
 DB_NAME = "luke-database"
 DB_USER = "myadmin"
