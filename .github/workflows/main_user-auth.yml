@@ -9,12 +9,12 @@ on:
     branches:
       - main
     paths:
-      - 'user-auth/**'
+      - "user-auth/**"
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'user-auth' # set this to the path to your web app project, defaults to the repository root
-  PYTHON_VERSION: '3.12' # set this to the python version to use (supports 3.6, 3.7, 3.8)
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: "user-auth" # set this to the path to your web app project, defaults to the repository root
+  PYTHON_VERSION: "3.12" # set this to the python version to use (supports 3.6, 3.7, 3.8)
 
 jobs:
   build:
@@ -71,7 +71,7 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: unzip release.zip
-        
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -79,10 +79,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C92A7E30E76A4099A43840434B60920F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_0633B6C4EF674C47A1CA1939E81AFF4C }}
 
-      - name: 'Deploy to Azure Functions'
+      - name: "Deploy to Azure Functions"
         uses: Azure/functions-action@v1
         id: deploy-to-function
         with:
-          app-name: 'user-auth'
-          slot-name: 'Production'
+          app-name: "user-auth-feh2gugugngnbxbp"
+          slot-name: "Production"
           package: .
