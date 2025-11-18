@@ -83,6 +83,6 @@ jobs:
         uses: Azure/functions-action@v1
         id: deploy-to-function
         with:
-          app-name: "product-catalog-ffcjf2heceech3f6"
+          app-name: "product-catalog"
           slot-name: "Production"
           package: .

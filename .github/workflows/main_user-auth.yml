@@ -83,6 +83,6 @@ jobs:
         uses: Azure/functions-action@v1
         id: deploy-to-function
         with:
-          app-name: "user-auth-feh2gugugngnbxbp"
+          app-name: "user-auth"
           slot-name: "Production"
           package: .
