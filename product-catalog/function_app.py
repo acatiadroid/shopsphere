@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 import azure.functions as func
-import pymssql
+import pytds
 
 app = func.FunctionApp()
 
@@ -17,12 +17,13 @@ DB_PASSWORD = "Abcdefgh0!"
 
 def get_db_connection():
     """Create database connection"""
-    return pymssql.connect(
+    return pytds.connect(
         server=DB_SERVER,
+        database=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
-        database=DB_NAME,
-        tds_version="7.4",
+        port=1433,
+        autocommit=False,
     )
 
 
@@ -40,7 +41,7 @@ def verify_admin(session_token):
             SELECT u.id, u.is_admin
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = ? AND s.expires_at > ?
+            WHERE s.token = %s AND s.expires_at > %s
             """,
             (session_token, datetime.utcnow()),
         )
@@ -159,7 +160,7 @@ def get_product(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, name, description, price, stock_quantity, category, image_url, created_at FROM products WHERE id = ?",
+            "SELECT id, name, description, price, stock, category, image_url, created_at FROM products WHERE id = %s",
             (product_id,),
         )
 

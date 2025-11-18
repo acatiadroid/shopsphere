@@ -1,12 +1,11 @@
 import hashlib
 import json
 import logging
-import os
 import secrets
 from datetime import datetime, timedelta
 
 import azure.functions as func
-import pymssql
+import pytds
 
 app = func.FunctionApp()
 
@@ -19,12 +18,13 @@ DB_PASSWORD = "Abcdefgh0!"
 
 def get_db_connection():
     """Create database connection"""
-    return pymssql.connect(
+    return pytds.connect(
         server=DB_SERVER,
+        database=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
-        database=DB_NAME,
-        tds_version="7.4",
+        port=1433,
+        autocommit=False,
     )
 
 
@@ -49,13 +49,11 @@ def generate_session_token():
     return secrets.token_urlsafe(32)
 
 
-@app.function_name(name="UserAuth")
-@app.route(route="auth/{action}", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def user_auth(req: func.HttpRequest) -> func.HttpResponse:
-    """Handle user authentication"""
-    logging.info("User auth function triggered")
-
-    action = req.route_params.get("action")
+@app.function_name(name="Signup")
+@app.route(route="auth/signup", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def signup(req: func.HttpRequest) -> func.HttpResponse:
+    """Handle user signup"""
+    logging.info("Signup function triggered")
 
     try:
         req_body = req.get_json()
@@ -66,27 +64,9 @@ def user_auth(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    if action == "signup":
-        return handle_signup(req_body)
-    elif action == "login":
-        return handle_login(req_body)
-    elif action == "logout":
-        return handle_logout(req_body)
-    elif action == "verify":
-        return handle_verify_session(req_body)
-    else:
-        return func.HttpResponse(
-            json.dumps({"error": "Invalid action"}),
-            status_code=400,
-            mimetype="application/json",
-        )
-
-
-def handle_signup(data):
-    """Handle user signup"""
-    email = data.get("email")
-    password = data.get("password")
-    name = data.get("name")
+    email = req_body.get("email")
+    password = req_body.get("password")
+    name = req_body.get("name")
 
     if not email or not password or not name:
         return func.HttpResponse(
@@ -100,8 +80,9 @@ def handle_signup(data):
         cursor = conn.cursor()
 
         # Check if user exists
-        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cursor.fetchone():
+            conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "User already exists"}),
                 status_code=409,
@@ -113,19 +94,21 @@ def handle_signup(data):
 
         # Create user
         cursor.execute(
-            "INSERT INTO users (email, password_hash, salt, name, created_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO users (email, password_hash, salt, name, created_at) VALUES (%s, %s, %s, %s, %s)",
             (email, password_hash, salt, name, datetime.utcnow()),
         )
         conn.commit()
 
-        user_id = int(cursor.execute("SELECT @@IDENTITY").fetchone()[0])
+        # Get the inserted user ID
+        cursor.execute("SELECT @@IDENTITY AS id")
+        user_id = int(cursor.fetchone()[0])
 
         # Create session
         session_token = generate_session_token()
         expires_at = datetime.utcnow() + timedelta(days=7)
 
         cursor.execute(
-            "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
+            "INSERT INTO sessions (user_id, token, expires_at) VALUES (%s, %s, %s)",
             (user_id, session_token, expires_at),
         )
         conn.commit()
@@ -155,10 +138,23 @@ def handle_signup(data):
         )
 
 
-def handle_login(data):
+@app.function_name(name="Login")
+@app.route(route="auth/login", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def login(req: func.HttpRequest) -> func.HttpResponse:
     """Handle user login"""
-    email = data.get("email")
-    password = data.get("password")
+    logging.info("Login function triggered")
+
+    try:
+        req_body = req.get_json()
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    email = req_body.get("email")
+    password = req_body.get("password")
 
     if not email or not password:
         return func.HttpResponse(
@@ -173,12 +169,13 @@ def handle_login(data):
 
         # Get user
         cursor.execute(
-            "SELECT id, email, name, password_hash, salt FROM users WHERE email = ?",
+            "SELECT id, email, name, password_hash, salt FROM users WHERE email = %s",
             (email,),
         )
         user = cursor.fetchone()
 
         if not user:
+            conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Invalid credentials"}),
                 status_code=401,
@@ -190,6 +187,7 @@ def handle_login(data):
 
         # Verify password
         if not verify_password(password, password_hash, salt):
+            conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Invalid credentials"}),
                 status_code=401,
@@ -201,7 +199,7 @@ def handle_login(data):
         expires_at = datetime.utcnow() + timedelta(days=7)
 
         cursor.execute(
-            "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
+            "INSERT INTO sessions (user_id, token, expires_at) VALUES (%s, %s, %s)",
             (user_id, session_token, expires_at),
         )
         conn.commit()
@@ -230,9 +228,22 @@ def handle_login(data):
         )
 
 
-def handle_logout(data):
+@app.function_name(name="Logout")
+@app.route(route="auth/logout", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def logout(req: func.HttpRequest) -> func.HttpResponse:
     """Handle user logout"""
-    session_token = data.get("session_token")
+    logging.info("Logout function triggered")
+
+    try:
+        req_body = req.get_json()
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    session_token = req_body.get("session_token")
 
     if not session_token:
         return func.HttpResponse(
@@ -245,7 +256,7 @@ def handle_logout(data):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("DELETE FROM sessions WHERE token = ?", (session_token,))
+        cursor.execute("DELETE FROM sessions WHERE token = %s", (session_token,))
         conn.commit()
         conn.close()
 
@@ -262,9 +273,22 @@ def handle_logout(data):
         )
 
 
-def handle_verify_session(data):
+@app.function_name(name="VerifySession")
+@app.route(route="auth/verify", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def verify_session(req: func.HttpRequest) -> func.HttpResponse:
     """Verify session token"""
-    session_token = data.get("session_token")
+    logging.info("Verify session function triggered")
+
+    try:
+        req_body = req.get_json()
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    session_token = req_body.get("session_token")
 
     if not session_token:
         return func.HttpResponse(
@@ -282,13 +306,14 @@ def handle_verify_session(data):
             SELECT u.id, u.email, u.name, s.expires_at
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = ?
+            WHERE s.token = %s
             """,
             (session_token,),
         )
         result = cursor.fetchone()
 
         if not result:
+            conn.close()
             return func.HttpResponse(
                 json.dumps({"valid": False, "error": "Invalid session"}),
                 status_code=401,
@@ -300,7 +325,7 @@ def handle_verify_session(data):
 
         # Check if session expired
         if expires_at < datetime.utcnow():
-            cursor.execute("DELETE FROM sessions WHERE token = ?", (session_token,))
+            cursor.execute("DELETE FROM sessions WHERE token = %s", (session_token,))
             conn.commit()
             conn.close()
             return func.HttpResponse(

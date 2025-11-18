@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 
 import azure.functions as func
-import pymssql
+import pytds
 
 app = func.FunctionApp()
 
@@ -19,12 +19,13 @@ DB_PASSWORD = "Abcdefgh0!"
 
 def get_db_connection():
     """Create database connection"""
-    return pymssql.connect(
+    return pytds.connect(
         server=DB_SERVER,
+        database=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
-        database=DB_NAME,
-        tds_version="7.4",
+        port=1433,
+        autocommit=False,
     )
 
 
@@ -42,7 +43,7 @@ def verify_session(session_token):
             SELECT u.id
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = ? AND s.expires_at > ?
+            WHERE s.token = %s AND s.expires_at > %s
             """,
             (session_token, datetime.utcnow()),
         )
@@ -121,7 +122,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
 
         # Verify order exists and belongs to user
         cursor.execute(
-            "SELECT id, total_amount, status FROM orders WHERE id = ? AND user_id = ?",
+            "SELECT id, total_amount, status FROM orders WHERE id = %s AND user_id = %s",
             (order_id, user_id),
         )
         order = cursor.fetchone()
@@ -165,7 +166,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
             cursor.execute(
                 """
                 INSERT INTO transactions (order_id, user_id, amount, payment_method, status, transaction_id, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     order_id,
@@ -196,7 +197,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
         cursor.execute(
             """
             INSERT INTO transactions (order_id, user_id, amount, payment_method, status, transaction_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 order_id,
@@ -211,7 +212,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
 
         # Update order status
         cursor.execute(
-            "UPDATE orders SET status = ?, paid_at = ? WHERE id = ?",
+            "UPDATE orders SET status = %s, paid_at = %s WHERE id = %s",
             ("paid", datetime.utcnow(), order_id),
         )
 
@@ -269,7 +270,7 @@ def get_transactions(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, order_id, amount, payment_method, status, transaction_id, created_at
             FROM transactions
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY created_at DESC
             """,
             (user_id,),
@@ -337,7 +338,7 @@ def get_transaction(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, order_id, amount, payment_method, status, transaction_id, created_at
             FROM transactions
-            WHERE transaction_id = ? AND user_id = ?
+            WHERE transaction_id = %s AND user_id = %s
             """,
             (transaction_id, user_id),
         )

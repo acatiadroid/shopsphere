@@ -1,4 +1,4 @@
 Flask
 requests
-pymssql
+python-tds
 python-dotenv

@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from functools import wraps
 
-import pymssql
+import pytds
 import requests
 from flask import (
     Flask,
@@ -36,12 +36,13 @@ CDN_BASE_URL = "https://shopsphere.blob.core.windows.net/cdn/"
 
 def get_db_connection():
     """Create database connection"""
-    return pymssql.connect(
+    return pytds.connect(
         server=DB_SERVER,
+        database=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
-        database=DB_NAME,
-        tds_version="7.4",
+        port=1433,
+        autocommit=False,
     )
 
 
