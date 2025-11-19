@@ -7,10 +7,21 @@ import pyodbc
 
 
 def get_db_connection():
-    """Create database connection"""
+    """Create database connection using pyodbc"""
     conn_str = os.environ.get("SqlConnectionString")
 
-    return pyodbc.connect(conn_str, autocommit=False)
+    if not conn_str:
+        raise ValueError("SqlConnectionString environment variable not set")
+
+    logging.info("Attempting database connection")
+
+    try:
+        conn = pyodbc.connect(conn_str)
+        logging.info("Database connection established")
+        return conn
+    except Exception as e:
+        logging.error(f"Database connection failed: {str(e)}")
+        raise
 
 
 def hash_password(password, salt=None):

@@ -1,7 +1,5 @@
 import json
 import logging
-
-# Add parent directory to path to import shared modules
 import os
 import sys
 
@@ -17,42 +15,56 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         req_body = req.get_json()
-    except ValueError:
-        return func.HttpResponse(
-            json.dumps({"error": "Invalid JSON"}),
-            status_code=400,
-            mimetype="application/json",
-        )
+        session_token = req_body.get("session_token")
 
-    session_token = req_body.get("session_token")
+        if not session_token:
+            return func.HttpResponse(
+                json.dumps({"success": False, "error": "Session token required"}),
+                status_code=400,
+                mimetype="application/json",
+            )
 
-    if not session_token:
-        return func.HttpResponse(
-            json.dumps({"error": "Session token required"}),
-            status_code=400,
-            mimetype="application/json",
-        )
+        logging.info("Processing logout request")
 
-    try:
-        conn = get_db_connection()
+        # Connect to database
+        try:
+            conn = get_db_connection()
+        except Exception as e:
+            logging.error(f"Database connection failed: {str(e)}")
+            return func.HttpResponse(
+                json.dumps(
+                    {"success": False, "error": f"Database connection error: {str(e)}"}
+                ),
+                status_code=500,
+                mimetype="application/json",
+            )
+
         cursor = conn.cursor()
 
+        # Delete session
         cursor.execute("DELETE FROM sessions WHERE token = ?", (session_token,))
         conn.commit()
         conn.close()
 
+        logging.info("Logout successful")
         return func.HttpResponse(
             json.dumps({"success": True}), status_code=200, mimetype="application/json"
         )
 
+    except ValueError:
+        logging.error("Invalid JSON in request")
+        return func.HttpResponse(
+            json.dumps({"success": False, "error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
+        )
     except Exception as e:
+        logging.error(f"Error: {str(e)}")
         import traceback
 
-        error_details = traceback.format_exc()
-        logging.error(f"Logout error: {str(e)}")
-        logging.error(f"Traceback: {error_details}")
+        logging.error(traceback.format_exc())
         return func.HttpResponse(
-            json.dumps({"error": "Internal server error", "details": str(e)}),
+            json.dumps({"success": False, "error": str(e)}),
             status_code=500,
             mimetype="application/json",
         )
