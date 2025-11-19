@@ -8,8 +8,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "user-auth/**"
   workflow_dispatch:
 
 env:
@@ -18,27 +16,43 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read #This is required for actions/checkout
   
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
   
-      - name: Validate project layout
-        run: ls -R ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        - name: Setup Python version
+          uses: actions/setup-python@v5
+          with:
+            python-version: ${{ env.PYTHON_VERSION }}
   
-      - name: Zip artifact for deployment
-        run: |
-          cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          zip -r ../release.zip ./* \
-              --exclude "venv/*" \
-              --exclude ".venv/*"
+        - name: Create and start virtual environment
+          working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          run: |
+            python -m venv venv
+            source venv/bin/activate
   
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-app
-          path: release.zip
+        - name: Install dependencies  
+          working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          run: |
+            python -m pip install --upgrade pip
+            mkdir -p .python_packages/lib/site-packages
+            pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+  
+        # Optional: Add step to run tests here
+  
+        - name: Zip artifact for deployment
+          working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          run: zip -r release.zip . -x "venv/*" "__pycache__/*" "*.pyc"
+  
+        - name: Upload artifact for deployment job
+          uses: actions/upload-artifact@v4
+          with:
+            name: python-app
+            path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -54,7 +68,9 @@ jobs:
           name: python-app
 
       - name: Unzip artifact for deployment
-        run: unzip release.zip
+        run: |
+          unzip release.zip
+          rm release.zip
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -63,10 +79,12 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C92A7E30E76A4099A43840434B60920F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_0633B6C4EF674C47A1CA1939E81AFF4C }}
 
-      - name: "Deploy to Azure Functions"
+      - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
         id: deploy-to-function
         with:
-          app-name: "user-auth"
-          slot-name: "Production"
+          app-name: 'User-Authentication'
+          slot-name: 'Production'
           package: .
+          scm-do-build-during-deployment: false
+          enable-oryx-build: false
