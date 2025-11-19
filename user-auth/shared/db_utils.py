@@ -10,38 +10,6 @@ def get_db_connection():
     """Create database connection"""
     conn_str = os.environ.get("SqlConnectionString")
 
-    # Log original connection string (sanitized)
-    sanitized = conn_str.split("Password=")[0] + "Password=***"
-    logging.info(f"Original conn string: {sanitized}")
-
-    # Fix double curly braces if present (from Azure portal escaping)
-    conn_str = conn_str.replace("{{", "{").replace("}}", "}")
-    # Remove Persist Security Info which can interfere with credentials
-    conn_str = conn_str.replace("Persist Security Info=False;", "")
-    conn_str = conn_str.replace("Persist Security Info=True;", "")
-    # Convert True/False to yes/no for ODBC compatibility
-    conn_str = conn_str.replace("Encrypt=True", "Encrypt=yes")
-    conn_str = conn_str.replace("Encrypt=False", "Encrypt=no")
-    conn_str = conn_str.replace(
-        "TrustServerCertificate=True", "TrustServerCertificate=yes"
-    )
-    conn_str = conn_str.replace(
-        "TrustServerCertificate=False", "TrustServerCertificate=no"
-    )
-    conn_str = conn_str.replace(
-        "MultipleActiveResultSets=True", "MultipleActiveResultSets=yes"
-    )
-    conn_str = conn_str.replace(
-        "MultipleActiveResultSets=False", "MultipleActiveResultSets=no"
-    )
-    # Add ODBC driver to connection string if not present
-    if "Driver=" not in conn_str:
-        conn_str = f"Driver={{ODBC Driver 18 for SQL Server}};" + conn_str
-
-    # Log processed connection string (sanitized)
-    sanitized_processed = conn_str.split("Password=")[0] + "Password=***"
-    logging.info(f"Processed conn string: {sanitized_processed}")
-
     return pyodbc.connect(conn_str, autocommit=False)
 
 
