@@ -8,25 +8,10 @@ import pyodbc
 
 app = func.FunctionApp()
 
-# Database connection settings
-DB_SERVER = "luke-shopsphere.database.windows.net"
-DB_NAME = "luke-database"
-DB_USER = "myadmin"
-DB_PASSWORD = "Abcdefgh0!"
-
 
 def get_db_connection():
     """Create database connection"""
-    conn_str = (
-        f"Driver={{ODBC Driver 18 for SQL Server}};"
-        f"Server=tcp:{DB_SERVER},1433;"
-        f"Database={DB_NAME};"
-        f"Uid={DB_USER};"
-        f"Pwd={DB_PASSWORD};"
-        f"Encrypt=yes;"
-        f"TrustServerCertificate=no;"
-        f"Connection Timeout=30;"
-    )
+    conn_str = os.environ.get("SqlConnectionString")
     return pyodbc.connect(conn_str, autocommit=False)
 
 
