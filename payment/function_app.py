@@ -6,11 +6,11 @@ from datetime import datetime
 from decimal import Decimal
 
 import azure.functions as func
-import pytds
+import pyodbc
 
 app = func.FunctionApp()
 
-# Database connection settings.
+# Database connection settings
 DB_SERVER = "luke-shopsphere.database.windows.net"
 DB_NAME = "luke-database"
 DB_USER = "myadmin"
@@ -19,14 +19,17 @@ DB_PASSWORD = "Abcdefgh0!"
 
 def get_db_connection():
     """Create database connection"""
-    return pytds.connect(
-        dsn=DB_SERVER,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=1433,
-        autocommit=False,
+    conn_str = (
+        f"Driver={{ODBC Driver 18 for SQL Server}};"
+        f"Server=tcp:{DB_SERVER},1433;"
+        f"Database={DB_NAME};"
+        f"Uid={DB_USER};"
+        f"Pwd={DB_PASSWORD};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=no;"
+        f"Connection Timeout=30;"
     )
+    return pyodbc.connect(conn_str, autocommit=False)
 
 
 def verify_session(session_token):
@@ -43,7 +46,7 @@ def verify_session(session_token):
             SELECT u.id
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = %s AND s.expires_at > %s
+            WHERE s.token = ? AND s.expires_at > ?
             """,
             (session_token, datetime.utcnow()),
         )
@@ -122,7 +125,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
 
         # Verify order exists and belongs to user
         cursor.execute(
-            "SELECT id, total_amount, status FROM orders WHERE id = %s AND user_id = %s",
+            "SELECT id, total_amount, status FROM orders WHERE id = ? AND user_id = ?",
             (order_id, user_id),
         )
         order = cursor.fetchone()
@@ -166,7 +169,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
             cursor.execute(
                 """
                 INSERT INTO transactions (order_id, user_id, amount, payment_method, status, transaction_id, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     order_id,
@@ -197,7 +200,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
         cursor.execute(
             """
             INSERT INTO transactions (order_id, user_id, amount, payment_method, status, transaction_id, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 order_id,
@@ -212,7 +215,7 @@ def process_payment(req: func.HttpRequest) -> func.HttpResponse:
 
         # Update order status
         cursor.execute(
-            "UPDATE orders SET status = %s, paid_at = %s WHERE id = %s",
+            "UPDATE orders SET status = ?, paid_at = ? WHERE id = ?",
             ("paid", datetime.utcnow(), order_id),
         )
 
@@ -270,7 +273,7 @@ def get_transactions(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, order_id, amount, payment_method, status, transaction_id, created_at
             FROM transactions
-            WHERE user_id = %s
+            WHERE user_id = ?
             ORDER BY created_at DESC
             """,
             (user_id,),
@@ -338,7 +341,7 @@ def get_transaction(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, order_id, amount, payment_method, status, transaction_id, created_at
             FROM transactions
-            WHERE transaction_id = %s AND user_id = %s
+            WHERE transaction_id = ? AND user_id = ?
             """,
             (transaction_id, user_id),
         )

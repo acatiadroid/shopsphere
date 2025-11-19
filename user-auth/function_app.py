@@ -5,11 +5,11 @@ import secrets
 from datetime import datetime, timedelta
 
 import azure.functions as func
-import pytds
+import pyodbc
 
 app = func.FunctionApp()
 
-# Database connection settings.
+# Database connection settings
 DB_SERVER = "luke-shopsphere.database.windows.net"
 DB_NAME = "luke-database"
 DB_USER = "myadmin"
@@ -18,14 +18,17 @@ DB_PASSWORD = "Abcdefgh0!"
 
 def get_db_connection():
     """Create database connection"""
-    return pytds.connect(
-        dsn=DB_SERVER,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=1433,
-        autocommit=False,
+    conn_str = (
+        f"Driver={{ODBC Driver 18 for SQL Server}};"
+        f"Server=tcp:{DB_SERVER},1433;"
+        f"Database={DB_NAME};"
+        f"Uid={DB_USER};"
+        f"Pwd={DB_PASSWORD};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=no;"
+        f"Connection Timeout=30;"
     )
+    return pyodbc.connect(conn_str, autocommit=False)
 
 
 def hash_password(password, salt=None):
@@ -80,7 +83,7 @@ def signup(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         # Check if user exists
-        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         if cursor.fetchone():
             conn.close()
             return func.HttpResponse(
@@ -94,7 +97,7 @@ def signup(req: func.HttpRequest) -> func.HttpResponse:
 
         # Create user
         cursor.execute(
-            "INSERT INTO users (email, password_hash, salt, name, created_at) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO users (email, password_hash, salt, name, created_at) VALUES (?, ?, ?, ?, ?)",
             (email, password_hash, salt, name, datetime.utcnow()),
         )
         conn.commit()
@@ -108,7 +111,7 @@ def signup(req: func.HttpRequest) -> func.HttpResponse:
         expires_at = datetime.utcnow() + timedelta(days=7)
 
         cursor.execute(
-            "INSERT INTO sessions (user_id, token, expires_at) VALUES (%s, %s, %s)",
+            "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
             (user_id, session_token, expires_at),
         )
         conn.commit()
@@ -169,7 +172,7 @@ def login(req: func.HttpRequest) -> func.HttpResponse:
 
         # Get user
         cursor.execute(
-            "SELECT id, email, name, password_hash, salt FROM users WHERE email = %s",
+            "SELECT id, email, name, password_hash, salt FROM users WHERE email = ?",
             (email,),
         )
         user = cursor.fetchone()
@@ -199,7 +202,7 @@ def login(req: func.HttpRequest) -> func.HttpResponse:
         expires_at = datetime.utcnow() + timedelta(days=7)
 
         cursor.execute(
-            "INSERT INTO sessions (user_id, token, expires_at) VALUES (%s, %s, %s)",
+            "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
             (user_id, session_token, expires_at),
         )
         conn.commit()
@@ -256,7 +259,7 @@ def logout(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("DELETE FROM sessions WHERE token = %s", (session_token,))
+        cursor.execute("DELETE FROM sessions WHERE token = ?", (session_token,))
         conn.commit()
         conn.close()
 
@@ -306,7 +309,7 @@ def verify_session(req: func.HttpRequest) -> func.HttpResponse:
             SELECT u.id, u.email, u.name, s.expires_at
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = %s
+            WHERE s.token = ?
             """,
             (session_token,),
         )
@@ -325,7 +328,7 @@ def verify_session(req: func.HttpRequest) -> func.HttpResponse:
 
         # Check if session expired
         if expires_at < datetime.utcnow():
-            cursor.execute("DELETE FROM sessions WHERE token = %s", (session_token,))
+            cursor.execute("DELETE FROM sessions WHERE token = ?", (session_token,))
             conn.commit()
             conn.close()
             return func.HttpResponse(
