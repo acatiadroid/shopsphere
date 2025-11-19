@@ -1,8 +1,6 @@
 import os
-from datetime import datetime
 from functools import wraps
 
-import pytds
 import requests
 from flask import (
     Flask,
@@ -18,32 +16,20 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 
 # Azure Function URLs
-USER_AUTH_URL = (
-    "https://user-auth-feh2gugugngnbxbp.norwayeast-01.azurewebsites.net/api/auth"
+USER_AUTH_URL = "https://user-auth-feh2gugugngnbxbp.norwayeast-01.azurewebsites.net/api"
+PRODUCT_CATALOG_URL = (
+    "https://product-catalog-ffcjf2heceech3f6.norwayeast-01.azurewebsites.net/api"
 )
-PRODUCT_CATALOG_URL = "https://product-catalog-ffcjf2heceech3f6.norwayeast-01.azurewebsites.net/api/products"
-PAYMENT_URL = (
-    "https://payment-bxehasc6bshbdpd2.norwayeast-01.azurewebsites.net/api/payment"
-)
+PAYMENT_URL = "https://payment-bxehasc6bshbdpd2.norwayeast-01.azurewebsites.net/api"
 
-# Database connection settings
-DB_SERVER = os.environ.get("DB_SERVER", "luke-shopsphere.database.windows.net")
-DB_NAME = os.environ.get("DB_NAME", "luke-database")
-DB_USER = os.environ.get("DB_USER", "myadmin")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "Abcdefgh0!")
 CDN_BASE_URL = "https://shopsphere.blob.core.windows.net/cdn/"
 
 
-def get_db_connection():
-    """Create database connection"""
-    return pytds.connect(
-        dsn=DB_SERVER,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=1433,
-        autocommit=False,
-    )
+def get_auth_headers():
+    """Get authorization headers with session token"""
+    if "session_token" in session:
+        return {"Authorization": f"Bearer {session['session_token']}"}
+    return {}
 
 
 def login_required(f):
@@ -54,6 +40,21 @@ def login_required(f):
         if "session_token" not in session:
             flash("Please login to access this page", "warning")
             return redirect(url_for("login"))
+
+        # Verify session is still valid
+        try:
+            response = requests.post(
+                f"{USER_AUTH_URL}/auth/verify",
+                json={"session_token": session["session_token"]},
+                timeout=5,
+            )
+            if not response.ok:
+                session.clear()
+                flash("Session expired. Please login again.", "warning")
+                return redirect(url_for("login"))
+        except Exception:
+            pass  # Continue if verification fails temporarily
+
         return f(*args, **kwargs)
 
     return decorated_function
@@ -64,7 +65,7 @@ def index():
     """Homepage with product listings"""
     try:
         # Get products from Azure Function
-        response = requests.get(PRODUCT_CATALOG_URL, timeout=10)
+        response = requests.get(f"{PRODUCT_CATALOG_URL}/products", timeout=10)
         products = response.json().get("products", []) if response.ok else []
 
         # Get categories
@@ -86,7 +87,9 @@ def index():
 def product_detail(product_id):
     """Product detail page"""
     try:
-        response = requests.get(f"{PRODUCT_CATALOG_URL}/{product_id}", timeout=10)
+        response = requests.get(
+            f"{PRODUCT_CATALOG_URL}/products/{product_id}", timeout=10
+        )
 
         if response.status_code == 404:
             flash("Product not found", "warning")
@@ -112,7 +115,7 @@ def signup():
 
         try:
             response = requests.post(
-                f"{USER_AUTH_URL}/signup",
+                f"{USER_AUTH_URL}/auth/signup",
                 json={"name": name, "email": email, "password": password},
                 timeout=10,
             )
@@ -157,7 +160,7 @@ def login():
 
         try:
             response = requests.post(
-                f"{USER_AUTH_URL}/login",
+                f"{USER_AUTH_URL}/auth/login",
                 json={"email": email, "password": password},
                 timeout=10,
             )
@@ -187,11 +190,11 @@ def logout():
     try:
         if "session_token" in session:
             requests.post(
-                f"{USER_AUTH_URL}/logout",
+                f"{USER_AUTH_URL}/auth/logout",
                 json={"session_token": session["session_token"]},
                 timeout=10,
             )
-    except:
+    except Exception:
         pass
 
     session.clear()
@@ -204,38 +207,20 @@ def logout():
 def cart():
     """Shopping cart page"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Get cart items
-        cursor.execute(
-            """
-            SELECT c.id, c.product_id, c.quantity, p.name, p.price, p.image_url, p.stock_quantity
-            FROM cart_items c
-            JOIN products p ON c.product_id = p.id
-            WHERE c.user_id = ?
-            """,
-            (session["user"]["id"],),
+        # Get cart items from Azure Function
+        response = requests.get(
+            f"{PRODUCT_CATALOG_URL}/cart",
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        cart_items = []
-        total = 0
-
-        for row in cursor.fetchall():
-            item = {
-                "id": row[0],
-                "product_id": row[1],
-                "quantity": row[2],
-                "name": row[3],
-                "price": float(row[4]),
-                "image_url": row[5],
-                "stock_quantity": row[6],
-                "subtotal": float(row[4]) * row[2],
-            }
-            cart_items.append(item)
-            total += item["subtotal"]
-
-        conn.close()
+        if response.ok:
+            data = response.json()
+            cart_items = data.get("items", [])
+            total = sum(item.get("subtotal", 0) for item in cart_items)
+        else:
+            cart_items = []
+            total = 0
 
         return render_template(
             "cart.html", cart_items=cart_items, total=total, user=session.get("user")
@@ -254,49 +239,21 @@ def add_to_cart(product_id):
     try:
         quantity = int(request.form.get("quantity", 1))
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Check if product exists and has stock
-        cursor.execute(
-            "SELECT stock_quantity FROM products WHERE id = ?", (product_id,)
+        response = requests.post(
+            f"{PRODUCT_CATALOG_URL}/cart",
+            json={"product_id": product_id, "quantity": quantity},
+            headers=get_auth_headers(),
+            timeout=10,
         )
-        product = cursor.fetchone()
 
-        if not product:
-            flash("Product not found", "danger")
-            return redirect(url_for("index"))
-
-        if product[0] < quantity:
-            flash("Not enough stock available", "warning")
+        if response.ok:
+            flash("Product added to cart", "success")
+            return redirect(url_for("cart"))
+        else:
+            error = response.json().get("error", "Failed to add to cart")
+            flash(error, "danger")
             return redirect(url_for("product_detail", product_id=product_id))
 
-        # Check if item already in cart
-        cursor.execute(
-            "SELECT id, quantity FROM cart_items WHERE user_id = ? AND product_id = ?",
-            (session["user"]["id"], product_id),
-        )
-        existing = cursor.fetchone()
-
-        if existing:
-            # Update quantity
-            new_quantity = existing[1] + quantity
-            cursor.execute(
-                "UPDATE cart_items SET quantity = ? WHERE id = ?",
-                (new_quantity, existing[0]),
-            )
-        else:
-            # Add new item
-            cursor.execute(
-                "INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?)",
-                (session["user"]["id"], product_id, quantity),
-            )
-
-        conn.commit()
-        conn.close()
-
-        flash("Product added to cart", "success")
-        return redirect(url_for("cart"))
     except Exception as e:
         flash(f"Error adding to cart: {str(e)}", "danger")
         return redirect(url_for("index"))
@@ -309,24 +266,19 @@ def update_cart(cart_item_id):
     try:
         quantity = int(request.form.get("quantity", 1))
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        response = requests.put(
+            f"{PRODUCT_CATALOG_URL}/cart/{cart_item_id}",
+            json={"quantity": quantity},
+            headers=get_auth_headers(),
+            timeout=10,
+        )
 
-        if quantity <= 0:
-            cursor.execute(
-                "DELETE FROM cart_items WHERE id = ? AND user_id = ?",
-                (cart_item_id, session["user"]["id"]),
-            )
+        if response.ok:
+            flash("Cart updated", "success")
         else:
-            cursor.execute(
-                "UPDATE cart_items SET quantity = ? WHERE id = ? AND user_id = ?",
-                (quantity, cart_item_id, session["user"]["id"]),
-            )
+            error = response.json().get("error", "Failed to update cart")
+            flash(error, "danger")
 
-        conn.commit()
-        conn.close()
-
-        flash("Cart updated", "success")
     except Exception as e:
         flash(f"Error updating cart: {str(e)}", "danger")
 
@@ -338,18 +290,18 @@ def update_cart(cart_item_id):
 def remove_from_cart(cart_item_id):
     """Remove item from cart"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "DELETE FROM cart_items WHERE id = ? AND user_id = ?",
-            (cart_item_id, session["user"]["id"]),
+        response = requests.delete(
+            f"{PRODUCT_CATALOG_URL}/cart/{cart_item_id}",
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        conn.commit()
-        conn.close()
+        if response.ok:
+            flash("Item removed from cart", "success")
+        else:
+            error = response.json().get("error", "Failed to remove item")
+            flash(error, "danger")
 
-        flash("Item removed from cart", "success")
     except Exception as e:
         flash(f"Error removing item: {str(e)}", "danger")
 
@@ -362,136 +314,66 @@ def checkout():
     """Checkout page"""
     if request.method == "POST":
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-
-            # Get cart items
-            cursor.execute(
-                """
-                SELECT c.product_id, c.quantity, p.price, p.stock_quantity
-                FROM cart_items c
-                JOIN products p ON c.product_id = p.id
-                WHERE c.user_id = ?
-                """,
-                (session["user"]["id"],),
-            )
-
-            cart_items = cursor.fetchall()
-
-            if not cart_items:
-                flash("Your cart is empty", "warning")
-                return redirect(url_for("cart"))
-
-            # Calculate total and validate stock
-            total = 0
-            for item in cart_items:
-                product_id, quantity, price, stock = item
-                if stock < quantity:
-                    flash("Some items are out of stock", "danger")
-                    return redirect(url_for("cart"))
-                total += float(price) * quantity
-
-            # Create order
-            cursor.execute(
-                "INSERT INTO orders (user_id, total_amount, status, created_at) VALUES (?, ?, ?, ?)",
-                (session["user"]["id"], total, "pending", datetime.utcnow()),
-            )
-            conn.commit()
-
-            order_id = cursor.execute("SELECT @@IDENTITY").fetchone()[0]
-
-            # Create order items
-            for item in cart_items:
-                product_id, quantity, price, _ = item
-                cursor.execute(
-                    "INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)",
-                    (order_id, product_id, quantity, price),
-                )
-
-            conn.commit()
-
-            # Process payment
             payment_method = request.form.get("payment_method", "credit_card")
+            billing_address = request.form.get("billing_address", "")
+            shipping_address = request.form.get("shipping_address", "")
 
-            headers = {"Authorization": f"Bearer {session['session_token']}"}
+            # Call checkout Azure Function
             response = requests.post(
-                f"{PAYMENT_URL}/process",
+                f"{PAYMENT_URL}/checkout",
                 json={
-                    "order_id": order_id,
-                    "amount": total,
                     "payment_method": payment_method,
+                    "billing_address": billing_address,
+                    "shipping_address": shipping_address,
                 },
-                headers=headers,
-                timeout=10,
+                headers=get_auth_headers(),
+                timeout=15,
             )
 
             if response.ok:
                 data = response.json()
 
                 if data.get("success"):
-                    # Update stock quantities
-                    for item in cart_items:
-                        product_id, quantity, _, _ = item
-                        cursor.execute(
-                            "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?",
-                            (quantity, product_id),
-                        )
-
-                    # Clear cart
-                    cursor.execute(
-                        "DELETE FROM cart_items WHERE user_id = ?",
-                        (session["user"]["id"],),
-                    )
-
-                    conn.commit()
-                    conn.close()
+                    order_id = data.get("order_id")
+                    transaction_id = data.get("transaction_id")
 
                     flash(
-                        f"Order placed successfully! Transaction ID: {data['transaction_id']}",
+                        f"Order placed successfully! Transaction ID: {transaction_id}",
                         "success",
                     )
                     return redirect(url_for("order_detail", order_id=order_id))
                 else:
-                    flash("Payment failed. Please try again.", "danger")
+                    error = data.get("error", "Checkout failed")
+                    flash(error, "danger")
             else:
-                flash("Payment processing error", "danger")
-
-            conn.close()
+                error = response.json().get("error", "Checkout failed")
+                flash(error, "danger")
 
         except Exception as e:
             flash(f"Error during checkout: {str(e)}", "danger")
 
+        return redirect(url_for("checkout"))
+
     # GET request - show checkout form
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT c.id, c.product_id, c.quantity, p.name, p.price
-            FROM cart_items c
-            JOIN products p ON c.product_id = p.id
-            WHERE c.user_id = ?
-            """,
-            (session["user"]["id"],),
+        # Get cart items for display
+        response = requests.get(
+            f"{PRODUCT_CATALOG_URL}/cart",
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        cart_items = []
-        total = 0
+        if response.ok:
+            data = response.json()
+            cart_items = data.get("items", [])
+            total = sum(item.get("subtotal", 0) for item in cart_items)
+        else:
+            cart_items = []
+            total = 0
 
-        for row in cursor.fetchall():
-            item = {
-                "id": row[0],
-                "product_id": row[1],
-                "quantity": row[2],
-                "name": row[3],
-                "price": float(row[4]),
-                "subtotal": float(row[4]) * row[2],
-            }
-            cart_items.append(item)
-            total += item["subtotal"]
-
-        conn.close()
+        if not cart_items:
+            flash("Your cart is empty", "warning")
+            return redirect(url_for("cart"))
 
         return render_template(
             "checkout.html",
@@ -509,32 +391,17 @@ def checkout():
 def orders():
     """User's order history"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT id, total_amount, status, created_at, paid_at
-            FROM orders
-            WHERE user_id = ?
-            ORDER BY created_at DESC
-            """,
-            (session["user"]["id"],),
+        response = requests.get(
+            f"{PAYMENT_URL}/orders",
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        orders_list = []
-        for row in cursor.fetchall():
-            orders_list.append(
-                {
-                    "id": row[0],
-                    "total_amount": float(row[1]),
-                    "status": row[2],
-                    "created_at": row[3],
-                    "paid_at": row[4],
-                }
-            )
-
-        conn.close()
+        if response.ok:
+            data = response.json()
+            orders_list = data.get("orders", [])
+        else:
+            orders_list = []
 
         return render_template(
             "orders.html", orders=orders_list, user=session.get("user")
@@ -549,57 +416,38 @@ def orders():
 def order_detail(order_id):
     """Order detail page with tracking"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Get order
-        cursor.execute(
-            """
-            SELECT id, total_amount, status, created_at, paid_at
-            FROM orders
-            WHERE id = ? AND user_id = ?
-            """,
-            (order_id, session["user"]["id"]),
+        # Get order details
+        response = requests.get(
+            f"{PAYMENT_URL}/orders/{order_id}",
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        order_row = cursor.fetchone()
-
-        if not order_row:
+        if response.status_code == 404:
             flash("Order not found", "warning")
             return redirect(url_for("orders"))
 
-        order = {
-            "id": order_row[0],
-            "total_amount": float(order_row[1]),
-            "status": order_row[2],
-            "created_at": order_row[3],
-            "paid_at": order_row[4],
-        }
+        if not response.ok:
+            flash("Error loading order", "danger")
+            return redirect(url_for("orders"))
 
-        # Get order items
-        cursor.execute(
-            """
-            SELECT oi.quantity, oi.price, p.name, p.image_url
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id = ?
-            """,
-            (order_id,),
-        )
+        order_data = response.json()
+        order = order_data.get("order", {})
+        items = order_data.get("items", [])
 
-        items = []
-        for row in cursor.fetchall():
-            items.append(
-                {
-                    "quantity": row[0],
-                    "price": float(row[1]),
-                    "name": row[2],
-                    "image_url": row[3],
-                    "subtotal": float(row[1]) * row[0],
-                }
+        # Get tracking information
+        try:
+            tracking_response = requests.get(
+                f"{PAYMENT_URL}/orders/{order_id}/track",
+                headers=get_auth_headers(),
+                timeout=10,
             )
 
-        conn.close()
+            if tracking_response.ok:
+                tracking_data = tracking_response.json()
+                order["tracking"] = tracking_data.get("tracking", {})
+        except Exception:
+            pass  # Tracking is optional
 
         return render_template(
             "order_detail.html", order=order, items=items, user=session.get("user")
@@ -614,34 +462,17 @@ def order_detail(order_id):
 def wishlist():
     """User's wishlist"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT w.id, w.product_id, p.name, p.price, p.image_url, p.stock_quantity
-            FROM wishlist w
-            JOIN products p ON w.product_id = p.id
-            WHERE w.user_id = ?
-            ORDER BY w.created_at DESC
-            """,
-            (session["user"]["id"],),
+        response = requests.get(
+            f"{PRODUCT_CATALOG_URL}/wishlist",
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        wishlist_items = []
-        for row in cursor.fetchall():
-            wishlist_items.append(
-                {
-                    "id": row[0],
-                    "product_id": row[1],
-                    "name": row[2],
-                    "price": float(row[3]),
-                    "image_url": row[4],
-                    "stock_quantity": row[5],
-                }
-            )
-
-        conn.close()
+        if response.ok:
+            data = response.json()
+            wishlist_items = data.get("items", [])
+        else:
+            wishlist_items = []
 
         return render_template(
             "wishlist.html", wishlist_items=wishlist_items, user=session.get("user")
@@ -658,26 +489,22 @@ def wishlist():
 def add_to_wishlist(product_id):
     """Add product to wishlist"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Check if already in wishlist
-        cursor.execute(
-            "SELECT id FROM wishlist WHERE user_id = ? AND product_id = ?",
-            (session["user"]["id"], product_id),
+        response = requests.post(
+            f"{PRODUCT_CATALOG_URL}/wishlist",
+            json={"product_id": product_id},
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        if cursor.fetchone():
-            flash("Product already in wishlist", "info")
-        else:
-            cursor.execute(
-                "INSERT INTO wishlist (user_id, product_id, created_at) VALUES (?, ?, ?)",
-                (session["user"]["id"], product_id, datetime.utcnow()),
-            )
-            conn.commit()
+        if response.ok:
             flash("Product added to wishlist", "success")
+        else:
+            error = response.json().get("error", "Failed to add to wishlist")
+            if "already" in error.lower():
+                flash("Product already in wishlist", "info")
+            else:
+                flash(error, "danger")
 
-        conn.close()
     except Exception as e:
         flash(f"Error adding to wishlist: {str(e)}", "danger")
 
@@ -689,22 +516,60 @@ def add_to_wishlist(product_id):
 def remove_from_wishlist(wishlist_id):
     """Remove product from wishlist"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "DELETE FROM wishlist WHERE id = ? AND user_id = ?",
-            (wishlist_id, session["user"]["id"]),
+        response = requests.delete(
+            f"{PRODUCT_CATALOG_URL}/wishlist/{wishlist_id}",
+            headers=get_auth_headers(),
+            timeout=10,
         )
 
-        conn.commit()
-        conn.close()
+        if response.ok:
+            flash("Product removed from wishlist", "success")
+        else:
+            error = response.json().get("error", "Failed to remove from wishlist")
+            flash(error, "danger")
 
-        flash("Product removed from wishlist", "success")
     except Exception as e:
         flash(f"Error removing from wishlist: {str(e)}", "danger")
 
     return redirect(url_for("wishlist"))
+
+
+@app.route("/admin/products", methods=["GET"])
+@login_required
+def admin_products():
+    """Admin page to manage products (for future use)"""
+    # This would require admin role checking
+    flash("Admin features coming soon", "info")
+    return redirect(url_for("index"))
+
+
+@app.route("/transactions")
+@login_required
+def transactions():
+    """User's transaction history"""
+    try:
+        response = requests.get(
+            f"{PAYMENT_URL}/payment/transactions",
+            headers=get_auth_headers(),
+            timeout=10,
+        )
+
+        if response.ok:
+            data = response.json()
+            transactions_list = data.get("transactions", [])
+        else:
+            transactions_list = []
+
+        return render_template(
+            "transactions.html",
+            transactions=transactions_list,
+            user=session.get("user"),
+        )
+    except Exception as e:
+        flash(f"Error loading transactions: {str(e)}", "danger")
+        return render_template(
+            "transactions.html", transactions=[], user=session.get("user")
+        )
 
 
 if __name__ == "__main__":
