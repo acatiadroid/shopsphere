@@ -130,10 +130,11 @@ def signup():
                     return render_template("signup.html")
 
                 session["session_token"] = data["session_token"]
+                user_data = data.get("user", {})
                 session["user"] = {
-                    "id": data["user_id"],
-                    "email": data["email"],
-                    "name": data["name"],
+                    "id": user_data.get("id"),
+                    "email": user_data.get("email"),
+                    "name": user_data.get("name"),
                 }
                 flash(f"Welcome, {name}!", "success")
                 return redirect(url_for("index"))
@@ -168,12 +169,13 @@ def login():
             if response.ok:
                 data = response.json()
                 session["session_token"] = data["session_token"]
+                user_data = data.get("user", {})
                 session["user"] = {
-                    "id": data["user_id"],
-                    "email": data["email"],
-                    "name": data["name"],
+                    "id": user_data.get("id"),
+                    "email": user_data.get("email"),
+                    "name": user_data.get("name"),
                 }
-                flash(f"Welcome back, {data['name']}!", "success")
+                flash(f"Welcome back, {user_data.get('name')}!", "success")
                 return redirect(url_for("index"))
             else:
                 error = response.json().get("error", "Login failed")
@@ -216,8 +218,20 @@ def cart():
 
         if response.ok:
             data = response.json()
-            cart_items = data.get("items", [])
-            total = sum(item.get("subtotal", 0) for item in cart_items)
+            cart_items = data.get("cart_items", [])
+            # Calculate total from item_total field or compute it
+            total = data.get(
+                "total", sum(item.get("item_total", 0) for item in cart_items)
+            )
+
+            # Transform data to match template expectations
+            for item in cart_items:
+                product_data = item.get("product", {})
+                item["name"] = product_data.get("name")
+                item["price"] = product_data.get("price")
+                item["image_url"] = product_data.get("image_url")
+                item["stock_quantity"] = product_data.get("stock_quantity")
+                item["subtotal"] = item.get("item_total", 0)
         else:
             cart_items = []
             total = 0
@@ -335,10 +349,9 @@ def checkout():
 
                 if data.get("success"):
                     order_id = data.get("order_id")
-                    transaction_id = data.get("transaction_id")
-
+                    # Checkout doesn't return transaction_id, just order_id
                     flash(
-                        f"Order placed successfully! Transaction ID: {transaction_id}",
+                        f"Order placed successfully! Order ID: {order_id}",
                         "success",
                     )
                     return redirect(url_for("order_detail", order_id=order_id))
@@ -365,8 +378,19 @@ def checkout():
 
         if response.ok:
             data = response.json()
-            cart_items = data.get("items", [])
-            total = sum(item.get("subtotal", 0) for item in cart_items)
+            cart_items = data.get("cart_items", [])
+            total = data.get(
+                "total", sum(item.get("item_total", 0) for item in cart_items)
+            )
+
+            # Transform data to match template expectations
+            for item in cart_items:
+                product_data = item.get("product", {})
+                item["name"] = product_data.get("name")
+                item["price"] = product_data.get("price")
+                item["image_url"] = product_data.get("image_url")
+                item["stock_quantity"] = product_data.get("stock_quantity")
+                item["subtotal"] = item.get("item_total", 0)
         else:
             cart_items = []
             total = 0
@@ -431,9 +455,18 @@ def order_detail(order_id):
             flash("Error loading order", "danger")
             return redirect(url_for("orders"))
 
+        # GetOrder returns flat structure with items included
         order_data = response.json()
-        order = order_data.get("order", {})
-        items = order_data.get("items", [])
+        items = order_data.pop("items", [])
+        order = order_data
+
+        # Transform items to match template expectations
+        for item in items:
+            product_data = item.get("product", {})
+            item["name"] = product_data.get("name")
+            item["image_url"] = product_data.get("image_url")
+            item["price"] = item.get("price_at_purchase", 0)
+            item["subtotal"] = item.get("item_total", 0)
 
         # Get tracking information
         try:
@@ -470,7 +503,15 @@ def wishlist():
 
         if response.ok:
             data = response.json()
-            wishlist_items = data.get("items", [])
+            wishlist_items = data.get("wishlist_items", [])
+
+            # Transform data to match template expectations
+            for item in wishlist_items:
+                product_data = item.get("product", {})
+                item["name"] = product_data.get("name")
+                item["price"] = product_data.get("price")
+                item["image_url"] = product_data.get("image_url")
+                item["stock_quantity"] = product_data.get("stock_quantity")
         else:
             wishlist_items = []
 
