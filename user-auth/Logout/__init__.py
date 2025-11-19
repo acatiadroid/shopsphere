@@ -1,11 +1,13 @@
 import json
 import logging
+
+# Add parent directory to path to import shared modules
+import os
 import sys
 
 import azure.functions as func
 
-# Add parent directory to path to import shared modules
-sys.path.append("..")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from shared.db_utils import get_db_connection
 
 
@@ -44,9 +46,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     except Exception as e:
+        import traceback
+
+        error_details = traceback.format_exc()
         logging.error(f"Logout error: {str(e)}")
+        logging.error(f"Traceback: {error_details}")
         return func.HttpResponse(
-            json.dumps({"error": "Internal server error"}),
+            json.dumps({"error": "Internal server error", "details": str(e)}),
             status_code=500,
             mimetype="application/json",
         )
