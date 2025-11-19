@@ -40,7 +40,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Main function for user authentication"""
     logging.info("User auth function triggered")
 
-    # Get the route to determine which operation to perform.
+    # Get the route to determine which operation to perform
     route = req.route_params.get("action", "login")
 
     if route == "signup":
