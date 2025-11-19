@@ -6,10 +6,8 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": [
-        "post"
-      ],
-      "route": "login"
+      "methods": ["post"],
+      "route": "auth/{action}"
     },
     {
       "type": "http",

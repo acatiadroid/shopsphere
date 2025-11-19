@@ -8,8 +8,6 @@ from datetime import datetime, timedelta
 import azure.functions as func
 import pyodbc
 
-app = func.FunctionApp()
-
 
 def get_db_connection():
     """Create database connection"""
@@ -38,9 +36,30 @@ def generate_session_token():
     return secrets.token_urlsafe(32)
 
 
-@app.function_name(name="Signup")
-@app.route(route="auth/signup", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def signup(req: func.HttpRequest) -> func.HttpResponse:
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    """Main function for user authentication"""
+    logging.info("User auth function triggered")
+
+    # Get the route to determine which operation to perform
+    route = req.route_params.get("action", "login")
+
+    if route == "signup":
+        return handle_signup(req)
+    elif route == "login":
+        return handle_login(req)
+    elif route == "logout":
+        return handle_logout(req)
+    elif route == "verify":
+        return handle_verify_session(req)
+    else:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid route"}),
+            status_code=404,
+            mimetype="application/json",
+        )
+
+
+def handle_signup(req: func.HttpRequest) -> func.HttpResponse:
     """Handle user signup"""
     logging.info("Signup function triggered")
 
@@ -127,9 +146,7 @@ def signup(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
-@app.function_name(name="Login")
-@app.route(route="auth/login", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def login(req: func.HttpRequest) -> func.HttpResponse:
+def handle_login(req: func.HttpRequest) -> func.HttpResponse:
     """Handle user login"""
     logging.info("Login function triggered")
 
@@ -217,9 +234,7 @@ def login(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
-@app.function_name(name="Logout")
-@app.route(route="auth/logout", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def logout(req: func.HttpRequest) -> func.HttpResponse:
+def handle_logout(req: func.HttpRequest) -> func.HttpResponse:
     """Handle user logout"""
     logging.info("Logout function triggered")
 
@@ -262,9 +277,7 @@ def logout(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
-@app.function_name(name="VerifySession")
-@app.route(route="auth/verify", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def verify_session(req: func.HttpRequest) -> func.HttpResponse:
+def handle_verify_session(req: func.HttpRequest) -> func.HttpResponse:
     """Verify session token"""
     logging.info("Verify session function triggered")
 
