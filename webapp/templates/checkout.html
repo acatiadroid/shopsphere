@@ -1,17 +1,16 @@
-{% extends "base.html" %}
-
-{% block title %}Checkout - ShopSphere{% endblock %}
-
+{% extends "base.html" %} {% block title %}Checkout - ShopSphere{% endblock %}
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h1 class="h2">
-            <i class="bi bi-credit-card"></i> Checkout
-        </h1>
+        <h1 class="h2"><i class="bi bi-credit-card"></i> Checkout</h1>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('cart') }}">Cart</a></li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}">Home</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('cart') }}">Cart</a>
+                </li>
                 <li class="breadcrumb-item active">Checkout</li>
             </ol>
         </nav>
@@ -25,58 +24,306 @@
         <div class="col-lg-8 mb-4">
             <!-- Payment Method -->
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
+                <div
+                    class="card-header bg-primary text-white d-flex justify-content-between align-items-center"
+                >
                     <h5 class="mb-0">
                         <i class="bi bi-credit-card"></i> Payment Method
                     </h5>
+                    <a
+                        href="{{ url_for('payment_methods') }}"
+                        class="btn btn-sm btn-light"
+                    >
+                        <i class="bi bi-plus-circle"></i> Manage
+                    </a>
                 </div>
                 <div class="card-body">
+                    {% if payment_methods %}
                     <p class="text-muted mb-3">
-                        <i class="bi bi-info-circle"></i> This is a simulated payment system for demonstration purposes.
+                        <i class="bi bi-info-circle"></i> Select a saved payment
+                        method or add a new one.
                     </p>
 
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="credit_card" value="credit_card" checked>
-                                <label class="form-check-label" for="credit_card">
-                                    <i class="bi bi-credit-card text-primary"></i> Credit Card
+                    <!-- Saved Payment Methods -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Saved Payment Methods</h6>
+                        {% for method in payment_methods %}
+                        <div class="form-check mb-2">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="payment_method_id"
+                                id="saved_method_{{ method.id }}"
+                                value="{{ method.id }}"
+                                {%
+                                if
+                                method.is_default
+                                %}checked{%
+                                endif
+                                %}
+                            />
+                            <label
+                                class="form-check-label d-flex align-items-center"
+                                for="saved_method_{{ method.id }}"
+                            >
+                                {% if method.payment_type == 'credit_card' %}
+                                <i
+                                    class="bi bi-credit-card text-primary me-2"
+                                ></i>
+                                {% elif method.payment_type == 'debit_card' %}
+                                <i
+                                    class="bi bi-credit-card-2-front text-success me-2"
+                                ></i>
+                                {% elif method.payment_type == 'paypal' %}
+                                <i class="bi bi-paypal text-info me-2"></i>
+                                {% elif method.payment_type == 'apple_pay' %}
+                                <i class="bi bi-apple text-dark me-2"></i>
+                                {% elif method.payment_type == 'google_pay' %}
+                                <i class="bi bi-google text-warning me-2"></i>
+                                {% endif %}
+                                <span>
+                                    {% if method.payment_type in ['credit_card',
+                                    'debit_card'] %} {{ method.card_brand or
+                                    'Card' }} ending in {{ method.card_last_four
+                                    }} {% elif method.payment_type == 'paypal'
+                                    %} PayPal {% elif method.payment_type ==
+                                    'apple_pay' %} Apple Pay {% elif
+                                    method.payment_type == 'google_pay' %}
+                                    Google Pay {% endif %} {% if
+                                    method.is_default %}
+                                    <span class="badge bg-success ms-2"
+                                        >Default</span
+                                    >
+                                    {% endif %}
+                                </span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <hr />
+
+                    <!-- Option to use a new payment method -->
+                    <div class="form-check mb-3">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="payment_method_id"
+                            id="new_payment_method"
+                            value="new"
+                        />
+                        <label
+                            class="form-check-label"
+                            for="new_payment_method"
+                        >
+                            <i class="bi bi-plus-circle text-primary me-2"></i>
+                            <strong>Use a different payment method</strong>
+                        </label>
+                    </div>
+
+                    <div
+                        id="newPaymentMethodOptions"
+                        style="display: none"
+                        class="ms-4"
+                    >
+                        <div class="row g-2">
+                            <div class="col-6 col-md-4">
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    id="credit_card"
+                                    value="credit_card"
+                                    checked
+                                />
+                                <label
+                                    class="btn btn-outline-primary w-100"
+                                    for="credit_card"
+                                >
+                                    <i class="bi bi-credit-card"></i
+                                    ><br /><small>Credit Card</small>
                                 </label>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="debit_card" value="debit_card">
-                                <label class="form-check-label" for="debit_card">
-                                    <i class="bi bi-credit-card-2-front text-success"></i> Debit Card
+                            <div class="col-6 col-md-4">
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    id="debit_card"
+                                    value="debit_card"
+                                />
+                                <label
+                                    class="btn btn-outline-success w-100"
+                                    for="debit_card"
+                                >
+                                    <i class="bi bi-credit-card-2-front"></i
+                                    ><br /><small>Debit Card</small>
                                 </label>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="paypal" value="paypal">
-                                <label class="form-check-label" for="paypal">
-                                    <i class="bi bi-paypal text-info"></i> PayPal
+                            <div class="col-6 col-md-4">
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    id="paypal"
+                                    value="paypal"
+                                />
+                                <label
+                                    class="btn btn-outline-info w-100"
+                                    for="paypal"
+                                >
+                                    <i class="bi bi-paypal"></i><br /><small
+                                        >PayPal</small
+                                    >
                                 </label>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="apple_pay" value="apple_pay">
-                                <label class="form-check-label" for="apple_pay">
-                                    <i class="bi bi-apple text-dark"></i> Apple Pay
+                            <div class="col-6 col-md-4">
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    id="apple_pay"
+                                    value="apple_pay"
+                                />
+                                <label
+                                    class="btn btn-outline-dark w-100"
+                                    for="apple_pay"
+                                >
+                                    <i class="bi bi-apple"></i><br /><small
+                                        >Apple Pay</small
+                                    >
                                 </label>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="google_pay" value="google_pay">
-                                <label class="form-check-label" for="google_pay">
-                                    <i class="bi bi-google text-warning"></i> Google Pay
+                            <div class="col-6 col-md-4">
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    id="google_pay"
+                                    value="google_pay"
+                                />
+                                <label
+                                    class="btn btn-outline-warning w-100"
+                                    for="google_pay"
+                                >
+                                    <i class="bi bi-google"></i><br /><small
+                                        >Google Pay</small
+                                    >
                                 </label>
                             </div>
                         </div>
                     </div>
+
+                    {% else %}
+                    <!-- No saved payment methods -->
+                    <p class="text-muted mb-3">
+                        <i class="bi bi-info-circle"></i> This is a simulated
+                        payment system for demonstration purposes.
+                    </p>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> You don't
+                        have any saved payment methods.
+                        <a
+                            href="{{ url_for('payment_methods') }}"
+                            class="alert-link"
+                            >Add one now</a
+                        >
+                        for faster checkout in the future.
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="payment_method"
+                                    id="credit_card"
+                                    value="credit_card"
+                                    checked
+                                />
+                                <label
+                                    class="form-check-label"
+                                    for="credit_card"
+                                >
+                                    <i
+                                        class="bi bi-credit-card text-primary"
+                                    ></i>
+                                    Credit Card
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="payment_method"
+                                    id="debit_card"
+                                    value="debit_card"
+                                />
+                                <label
+                                    class="form-check-label"
+                                    for="debit_card"
+                                >
+                                    <i
+                                        class="bi bi-credit-card-2-front text-success"
+                                    ></i>
+                                    Debit Card
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="payment_method"
+                                    id="paypal"
+                                    value="paypal"
+                                />
+                                <label class="form-check-label" for="paypal">
+                                    <i class="bi bi-paypal text-info"></i>
+                                    PayPal
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="payment_method"
+                                    id="apple_pay"
+                                    value="apple_pay"
+                                />
+                                <label class="form-check-label" for="apple_pay">
+                                    <i class="bi bi-apple text-dark"></i> Apple
+                                    Pay
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="payment_method"
+                                    id="google_pay"
+                                    value="google_pay"
+                                />
+                                <label
+                                    class="form-check-label"
+                                    for="google_pay"
+                                >
+                                    <i class="bi bi-google text-warning"></i>
+                                    Google Pay
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -101,13 +348,20 @@
                                 <tr>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <i class="bi bi-box text-muted me-2"></i>
+                                            <i
+                                                class="bi bi-box text-muted me-2"
+                                            ></i>
                                             <span>{{ item.name }}</span>
                                         </div>
                                     </td>
                                     <td>${{ "%.2f"|format(item.price) }}</td>
                                     <td>{{ item.quantity }}</td>
-                                    <td><strong>${{ "%.2f"|format(item.subtotal) }}</strong></td>
+                                    <td>
+                                        <strong
+                                            >${{ "%.2f"|format(item.subtotal)
+                                            }}</strong
+                                        >
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -119,7 +373,7 @@
 
         <!-- Order Summary -->
         <div class="col-lg-4">
-            <div class="card sticky-top" style="top: 20px;">
+            <div class="card sticky-top" style="top: 20px">
                 <div class="card-header bg-light">
                     <h5 class="mb-0">Order Summary</h5>
                 </div>
@@ -136,17 +390,22 @@
                         <span>Estimated Tax (10%)</span>
                         <strong>${{ "%.2f"|format(total * 0.1) }}</strong>
                     </div>
-                    <hr>
+                    <hr />
                     <div class="d-flex justify-content-between mb-4">
                         <h5>Total</h5>
-                        <h5 class="text-primary">${{ "%.2f"|format(total * 1.1) }}</h5>
+                        <h5 class="text-primary">
+                            ${{ "%.2f"|format(total * 1.1) }}
+                        </h5>
                     </div>
 
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg">
                             <i class="bi bi-lock"></i> Place Order
                         </button>
-                        <a href="{{ url_for('cart') }}" class="btn btn-outline-secondary">
+                        <a
+                            href="{{ url_for('cart') }}"
+                            class="btn btn-outline-secondary"
+                        >
                             <i class="bi bi-arrow-left"></i> Back to Cart
                         </a>
                     </div>
@@ -155,13 +414,16 @@
                 <div class="card-footer bg-light">
                     <div class="small">
                         <div class="mb-2">
-                            <i class="bi bi-shield-check text-success"></i> Secure checkout
+                            <i class="bi bi-shield-check text-success"></i>
+                            Secure checkout
                         </div>
                         <div class="mb-2">
-                            <i class="bi bi-truck text-primary"></i> Free shipping
+                            <i class="bi bi-truck text-primary"></i> Free
+                            shipping
                         </div>
                         <div>
-                            <i class="bi bi-arrow-clockwise text-info"></i> Easy returns
+                            <i class="bi bi-arrow-clockwise text-info"></i> Easy
+                            returns
                         </div>
                     </div>
                 </div>
@@ -171,11 +433,14 @@
             <div class="card mt-3">
                 <div class="card-body">
                     <h6 class="mb-2">
-                        <i class="bi bi-info-circle text-primary"></i> Virtual Payment Demo
+                        <i class="bi bi-info-circle text-primary"></i> Virtual
+                        Payment Demo
                     </h6>
                     <p class="small text-muted mb-0">
-                        This is a simulated payment system. No real transactions will be processed.
-                        The system has a 95% success rate to demonstrate both successful and failed payment scenarios.
+                        This is a simulated payment system. No real transactions
+                        will be processed. The system has a 95% success rate to
+                        demonstrate both successful and failed payment
+                        scenarios.
                     </p>
                 </div>
             </div>
@@ -188,7 +453,7 @@
 <div class="row">
     <div class="col-12">
         <div class="alert alert-warning text-center">
-            <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+            <i class="bi bi-exclamation-triangle" style="font-size: 3rem"></i>
             <h4 class="mt-3">Your cart is empty</h4>
             <p>Add some items to your cart before checking out.</p>
             <a href="{{ url_for('index') }}" class="btn btn-primary">
@@ -198,4 +463,27 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+    // Toggle new payment method options
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if payment_methods %}
+        const newPaymentMethodRadio = document.getElementById('new_payment_method');
+        const newPaymentMethodOptions = document.getElementById('newPaymentMethodOptions');
+        const savedMethodRadios = document.querySelectorAll('input[name="payment_method_id"]');
+
+        if (newPaymentMethodRadio && newPaymentMethodOptions) {
+            savedMethodRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'new') {
+                        newPaymentMethodOptions.style.display = 'block';
+                    } else {
+                        newPaymentMethodOptions.style.display = 'none';
+                    }
+                });
+            });
+        }
+        {% endif %}
+    });
+</script>
 {% endblock %}

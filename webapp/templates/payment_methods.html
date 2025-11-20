@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Methods - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h2">
+            <i class="bi bi-credit-card"></i> Payment Methods
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item active">Payment Methods</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Saved Payment Methods -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-wallet2"></i> Saved Payment Methods
+                </h5>
+                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                    <i class="bi bi-plus-circle"></i> Add New
+                </button>
+            </div>
+            <div class="card-body">
+                {% if payment_methods %}
+                <div class="list-group list-group-flush">
+                    {% for method in payment_methods %}
+                    <div class="list-group-item">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-center">
+                                    <!-- Payment Type Icon -->
+                                    <div class="me-3">
+                                        {% if method.payment_type == 'credit_card' %}
+                                        <i class="bi bi-credit-card text-primary" style="font-size: 2rem;"></i>
+                                        {% elif method.payment_type == 'debit_card' %}
+                                        <i class="bi bi-credit-card-2-front text-success" style="font-size: 2rem;"></i>
+                                        {% elif method.payment_type == 'paypal' %}
+                                        <i class="bi bi-paypal text-info" style="font-size: 2rem;"></i>
+                                        {% elif method.payment_type == 'apple_pay' %}
+                                        <i class="bi bi-apple text-dark" style="font-size: 2rem;"></i>
+                                        {% elif method.payment_type == 'google_pay' %}
+                                        <i class="bi bi-google text-warning" style="font-size: 2rem;"></i>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Payment Details -->
+                                    <div>
+                                        <h6 class="mb-1">
+                                            {% if method.payment_type in ['credit_card', 'debit_card'] %}
+                                                {{ method.card_brand or 'Card' }} ending in {{ method.card_last_four }}
+                                            {% elif method.payment_type == 'paypal' %}
+                                                PayPal
+                                            {% elif method.payment_type == 'apple_pay' %}
+                                                Apple Pay
+                                            {% elif method.payment_type == 'google_pay' %}
+                                                Google Pay
+                                            {% endif %}
+                                            {% if method.is_default %}
+                                            <span class="badge bg-success ms-2">Default</span>
+                                            {% endif %}
+                                        </h6>
+                                        {% if method.payment_type in ['credit_card', 'debit_card'] %}
+                                        <small class="text-muted">
+                                            {% if method.cardholder_name %}{{ method.cardholder_name }}<br>{% endif %}
+                                            {% if method.expiry_month and method.expiry_year %}
+                                            Expires: {{ "%02d"|format(method.expiry_month) }}/{{ method.expiry_year }}
+                                            {% endif %}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <form action="{{ url_for('delete_payment_method', method_id=method.id) }}" method="post" style="display: inline;">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this payment method?')">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-credit-card-2-front text-muted" style="font-size: 4rem;"></i>
+                    <h5 class="mt-3 text-muted">No payment methods saved</h5>
+                    <p class="text-muted">Add a payment method to make checkout faster</p>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                        <i class="bi bi-plus-circle"></i> Add Your First Payment Method
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Sidebar -->
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="bi bi-shield-check"></i> Security & Privacy
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="small mb-2">
+                    <i class="bi bi-lock text-success"></i> Your payment information is encrypted and secure
+                </p>
+                <p class="small mb-2">
+                    <i class="bi bi-eye-slash text-primary"></i> We never store your full card number
+                </p>
+                <p class="small mb-0">
+                    <i class="bi bi-shield-fill-check text-info"></i> All transactions use industry-standard security
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Demo Notice
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-0">
+                    This is a virtual payment system for demonstration purposes.
+                    No real payment information is processed or stored.
+                    You can use any test card numbers (e.g., 4111 for last 4 digits).
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Payment Method Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPaymentModalLabel">
+                    <i class="bi bi-plus-circle"></i> Add Payment Method
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_payment_method') }}" method="post">
+                <div class="modal-body">
+                    <!-- Payment Type Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Payment Type <span class="text-danger">*</span></label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <input type="radio" class="btn-check" name="payment_type" id="type_credit_card" value="credit_card" checked>
+                                <label class="btn btn-outline-primary w-100" for="type_credit_card">
+                                    <i class="bi bi-credit-card"></i><br>Credit Card
+                                </label>
+                            </div>
+                            <div class="col-6">
+                                <input type="radio" class="btn-check" name="payment_type" id="type_debit_card" value="debit_card">
+                                <label class="btn btn-outline-success w-100" for="type_debit_card">
+                                    <i class="bi bi-credit-card-2-front"></i><br>Debit Card
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="payment_type" id="type_paypal" value="paypal">
+                                <label class="btn btn-outline-info w-100" for="type_paypal">
+                                    <i class="bi bi-paypal"></i><br>PayPal
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="payment_type" id="type_apple_pay" value="apple_pay">
+                                <label class="btn btn-outline-dark w-100" for="type_apple_pay">
+                                    <i class="bi bi-apple"></i><br>Apple Pay
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="payment_type" id="type_google_pay" value="google_pay">
+                                <label class="btn btn-outline-warning w-100" for="type_google_pay">
+                                    <i class="bi bi-google"></i><br>Google Pay
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Details (shown only for card types) -->
+                    <div id="cardDetails">
+                        <div class="mb-3">
+                            <label for="cardholder_name" class="form-label">Cardholder Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="cardholder_name" name="cardholder_name" placeholder="John Doe">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="card_last_four" class="form-label">Last 4 Digits <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="card_last_four" name="card_last_four" placeholder="1234" maxlength="4" pattern="[0-9]{4}">
+                                <small class="text-muted">Demo only - any 4 digits</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="card_brand" class="form-label">Card Brand</label>
+                                <select class="form-select" id="card_brand" name="card_brand">
+                                    <option value="">Select...</option>
+                                    <option value="Visa">Visa</option>
+                                    <option value="Mastercard">Mastercard</option>
+                                    <option value="American Express">American Express</option>
+                                    <option value="Discover">Discover</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="expiry_month" class="form-label">Expiry Month</label>
+                                <select class="form-select" id="expiry_month" name="expiry_month">
+                                    <option value="">MM</option>
+                                    {% for month in range(1, 13) %}
+                                    <option value="{{ month }}">{{ "%02d"|format(month) }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="expiry_year" class="form-label">Expiry Year</label>
+                                <select class="form-select" id="expiry_year" name="expiry_year">
+                                    <option value="">YYYY</option>
+                                    {% for year in range(2024, 2035) %}
+                                    <option value="{{ year }}">{{ year }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Default Payment Method -->
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="is_default" name="is_default">
+                        <label class="form-check-label" for="is_default">
+                            Set as default payment method
+                        </label>
+                    </div>
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <small>
+                            <i class="bi bi-info-circle"></i> This is a demo system. No real payment data is stored.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Payment Method
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide card details based on payment type selection
+document.addEventListener('DOMContentLoaded', function() {
+    const paymentTypeInputs = document.querySelectorAll('input[name="payment_type"]');
+    const cardDetails = document.getElementById('cardDetails');
+    const cardholderName = document.getElementById('cardholder_name');
+    const cardLastFour = document.getElementById('card_last_four');
+
+    function updateCardDetailsVisibility() {
+        const selectedType = document.querySelector('input[name="payment_type"]:checked').value;
+        const isCard = selectedType === 'credit_card' || selectedType === 'debit_card';
+
+        cardDetails.style.display = isCard ? 'block' : 'none';
+
+        // Update required attributes
+        if (isCard) {
+            cardholderName.required = true;
+            cardLastFour.required = true;
+        } else {
+            cardholderName.required = false;
+            cardLastFour.required = false;
+        }
+    }
+
+    paymentTypeInputs.forEach(input => {
+        input.addEventListener('change', updateCardDetailsVisibility);
+    });
+
+    // Initialize on page load
+    updateCardDetailsVisibility();
+});
+</script>
+
+{% endblock %}

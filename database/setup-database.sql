@@ -12,6 +12,7 @@ IF OBJECT_ID('transactions', 'U') IS NOT NULL DROP TABLE transactions;
 IF OBJECT_ID('orders', 'U') IS NOT NULL DROP TABLE orders;
 IF OBJECT_ID('cart_items', 'U') IS NOT NULL DROP TABLE cart_items;
 IF OBJECT_ID('wishlist', 'U') IS NOT NULL DROP TABLE wishlist;
+IF OBJECT_ID('payment_methods', 'U') IS NOT NULL DROP TABLE payment_methods;
 IF OBJECT_ID('sessions', 'U') IS NOT NULL DROP TABLE sessions;
 IF OBJECT_ID('products', 'U') IS NOT NULL DROP TABLE products;
 IF OBJECT_ID('shopusers', 'U') IS NOT NULL DROP TABLE shopusers;
@@ -52,6 +53,38 @@ CREATE TABLE sessions (
     INDEX IX_sessions_token (token),
     INDEX IX_sessions_user_id (user_id),
     INDEX IX_sessions_expires_at (expires_at)
+);
+
+-- ================================================================
+-- PAYMENT METHODS TABLE
+-- ================================================================
+
+-- Payment Methods Table (saved payment methods for users)
+CREATE TABLE payment_methods (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    payment_type NVARCHAR(50) NOT NULL,  -- credit_card, debit_card, paypal, apple_pay, google_pay
+    card_last_four NVARCHAR(4) NULL,     -- Last 4 digits of card (for display)
+    card_brand NVARCHAR(50) NULL,        -- Visa, Mastercard, Amex, etc.
+    cardholder_name NVARCHAR(255) NULL,
+    expiry_month INT NULL,
+    expiry_year INT NULL,
+    is_default BIT DEFAULT 0,            -- Default payment method
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    updated_at DATETIME2 NULL,
+
+    -- Foreign keys
+    CONSTRAINT FK_payment_methods_user_id FOREIGN KEY (user_id)
+        REFERENCES shopusers(id) ON DELETE CASCADE,
+
+    -- Constraints
+    CONSTRAINT CHK_payment_methods_type CHECK (payment_type IN ('credit_card', 'debit_card', 'paypal', 'apple_pay', 'google_pay')),
+    CONSTRAINT CHK_payment_methods_expiry_month CHECK (expiry_month IS NULL OR (expiry_month >= 1 AND expiry_month <= 12)),
+    CONSTRAINT CHK_payment_methods_expiry_year CHECK (expiry_year IS NULL OR expiry_year >= 2024),
+
+    -- Indexes
+    INDEX IX_payment_methods_user_id (user_id),
+    INDEX IX_payment_methods_is_default (is_default)
 );
 
 -- ================================================================
@@ -247,6 +280,8 @@ SELECT 'shopusers' AS TableName, COUNT(*) AS RowCount FROM shopusers
 UNION ALL
 SELECT 'sessions', COUNT(*) FROM sessions
 UNION ALL
+SELECT 'payment_methods', COUNT(*) FROM payment_methods
+UNION ALL
 SELECT 'products', COUNT(*) FROM products
 UNION ALL
 SELECT 'cart_items', COUNT(*) FROM cart_items
@@ -269,7 +304,7 @@ SELECT
 FROM sys.tables t
 INNER JOIN sys.columns c ON t.object_id = c.object_id
 INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
-WHERE t.name IN ('shopusers', 'sessions', 'products', 'cart_items', 'wishlist', 'orders', 'order_items', 'transactions')
+WHERE t.name IN ('shopusers', 'sessions', 'payment_methods', 'products', 'cart_items', 'wishlist', 'orders', 'order_items', 'transactions')
 ORDER BY t.name, c.column_id;
 
 -- ================================================================

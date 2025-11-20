@@ -349,9 +349,30 @@ def checkout():
     """Checkout page"""
     if request.method == "POST":
         try:
+            # Check if using a saved payment method or a new one
+            payment_method_id = request.form.get("payment_method_id")
             payment_method = request.form.get("payment_method", "credit_card")
             billing_address = request.form.get("billing_address", "")
             shipping_address = request.form.get("shipping_address", "")
+
+            # If using a saved payment method, fetch its details
+            if payment_method_id and payment_method_id != "new":
+                try:
+                    pm_response = requests.get(
+                        f"{USER_AUTH_URL}/payment-methods",
+                        headers=get_auth_headers(),
+                        timeout=10,
+                    )
+                    if pm_response.ok:
+                        methods = pm_response.json().get("payment_methods", [])
+                        selected_method = next(
+                            (m for m in methods if str(m["id"]) == payment_method_id),
+                            None,
+                        )
+                        if selected_method:
+                            payment_method = selected_method["payment_type"]
+                except Exception:
+                    pass  # Fall back to default payment_method if lookup fails
 
             # Call checkout Azure Function
             response = requests.post(
@@ -420,10 +441,25 @@ def checkout():
             flash("Your cart is empty", "warning")
             return redirect(url_for("cart"))
 
+        # Get saved payment methods
+        payment_methods = []
+        try:
+            pm_response = requests.get(
+                f"{USER_AUTH_URL}/payment-methods",
+                headers=get_auth_headers(),
+                timeout=10,
+            )
+            if pm_response.ok:
+                pm_data = pm_response.json()
+                payment_methods = pm_data.get("payment_methods", [])
+        except Exception:
+            pass  # Continue without payment methods if request fails
+
         return render_template(
             "checkout.html",
             cart_items=cart_items,
             total=total,
+            payment_methods=payment_methods,
             user=session.get("user"),
         )
     except Exception as e:
@@ -701,6 +737,107 @@ def transactions():
         return render_template(
             "transactions.html", transactions=[], user=session.get("user")
         )
+
+
+@app.route("/payment-methods")
+@login_required
+def payment_methods():
+    """Manage payment methods"""
+    try:
+        # Get user's payment methods
+        response = requests.get(
+            f"{USER_AUTH_URL}/payment-methods",
+            headers=get_auth_headers(),
+            timeout=10,
+        )
+
+        if response.ok:
+            data = response.json()
+            methods = data.get("payment_methods", [])
+        else:
+            methods = []
+
+        return render_template(
+            "payment_methods.html",
+            payment_methods=methods,
+            user=session.get("user"),
+        )
+    except Exception as e:
+        flash(f"Error loading payment methods: {str(e)}", "danger")
+        return render_template(
+            "payment_methods.html", payment_methods=[], user=session.get("user")
+        )
+
+
+@app.route("/payment-methods/add", methods=["POST"])
+@login_required
+def add_payment_method():
+    """Add a new payment method"""
+    try:
+        payment_type = request.form.get("payment_type")
+        card_last_four = request.form.get("card_last_four", "").strip()
+        card_brand = request.form.get("card_brand", "").strip()
+        cardholder_name = request.form.get("cardholder_name", "").strip()
+        expiry_month = request.form.get("expiry_month", "").strip()
+        expiry_year = request.form.get("expiry_year", "").strip()
+        is_default = request.form.get("is_default") == "on"
+
+        # Build payload
+        payload = {
+            "payment_type": payment_type,
+            "is_default": is_default,
+        }
+
+        # Add card details if it's a card payment type
+        if payment_type in ["credit_card", "debit_card"]:
+            payload["card_last_four"] = card_last_four
+            payload["card_brand"] = card_brand
+            payload["cardholder_name"] = cardholder_name
+            if expiry_month:
+                payload["expiry_month"] = int(expiry_month)
+            if expiry_year:
+                payload["expiry_year"] = int(expiry_year)
+
+        response = requests.post(
+            f"{USER_AUTH_URL}/payment-methods",
+            json=payload,
+            headers=get_auth_headers(),
+            timeout=10,
+        )
+
+        if response.ok:
+            flash("Payment method added successfully", "success")
+        else:
+            error = response.json().get("error", "Failed to add payment method")
+            flash(error, "danger")
+
+    except Exception as e:
+        flash(f"Error adding payment method: {str(e)}", "danger")
+
+    return redirect(url_for("payment_methods"))
+
+
+@app.route("/payment-methods/<int:method_id>/delete", methods=["POST"])
+@login_required
+def delete_payment_method(method_id):
+    """Delete a payment method"""
+    try:
+        response = requests.delete(
+            f"{USER_AUTH_URL}/payment-methods/{method_id}",
+            headers=get_auth_headers(),
+            timeout=10,
+        )
+
+        if response.ok:
+            flash("Payment method deleted successfully", "success")
+        else:
+            error = response.json().get("error", "Failed to delete payment method")
+            flash(error, "danger")
+
+    except Exception as e:
+        flash(f"Error deleting payment method: {str(e)}", "danger")
+
+    return redirect(url_for("payment_methods"))
 
 
 if __name__ == "__main__":
