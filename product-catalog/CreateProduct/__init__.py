@@ -1,9 +1,9 @@
-# product-catalog/CreateProduct/__init__.py
 import json
 import logging
 import os
 import sys
 from datetime import datetime
+from decimal import Decimal
 
 import azure.functions as func
 
@@ -101,13 +101,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         conn.close()
 
+        # Convert price to float if it's a Decimal (from database)
+        price_value = float(price) if isinstance(price, Decimal) else price
+
         return func.HttpResponse(
             json.dumps(
                 {
                     "success": True,
-                    "product_id": product_id,
+                    "product_id": int(product_id),  # Ensure it's an int, not Decimal
                     "name": name,
-                    "price": price,
+                    "price": price_value,
                     "image_url": image_url,
                 }
             ),
