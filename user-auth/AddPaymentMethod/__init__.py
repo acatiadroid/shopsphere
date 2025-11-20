@@ -151,9 +151,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn.commit()
 
         # Get the new payment method ID
-        payment_method_id = cursor.execute("SELECT @@IDENTITY").fetchone()[0]
+        result = cursor.execute("SELECT @@IDENTITY").fetchone()
+        payment_method_id = result[0] if result else None
 
         conn.close()
+
+        if not payment_method_id:
+            return func.HttpResponse(
+                json.dumps({"error": "Failed to retrieve payment method ID"}),
+                status_code=500,
+                mimetype="application/json",
+            )
 
         logging.info(f"Payment method {payment_method_id} added for user {user_id}")
 

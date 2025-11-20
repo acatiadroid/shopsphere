@@ -43,3 +43,32 @@ def verify_password(password, password_hash, salt):
 def generate_session_token():
     """Generate secure session token"""
     return secrets.token_urlsafe(32)
+
+
+def verify_session(session_token):
+    """Verify session and return user_id"""
+    if not session_token:
+        return None
+
+    try:
+        from datetime import datetime
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT u.id
+            FROM sessions s
+            JOIN shopusers u ON s.user_id = u.id
+            WHERE s.token = ? AND s.expires_at > ?
+            """,
+            (session_token, datetime.utcnow()),
+        )
+        result = cursor.fetchone()
+        conn.close()
+
+        return result[0] if result else None
+    except Exception as e:
+        logging.error(f"Session verification error: {str(e)}")
+        return None
