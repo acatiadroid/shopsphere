@@ -231,23 +231,17 @@ pip install -r requirements.txt
 
 3. **Configure environment variables:**
 
-Copy the example environment file and add your Azure Storage credentials:
+Copy the example environment file:
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your Azure Storage connection string:
+Edit `.env` and set your Flask secret key:
 ```env
 SECRET_KEY=your-secret-key-change-in-production
-AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=shopsphere;AccountKey=YOUR_KEY_HERE;EndpointSuffix=core.windows.net
 ```
 
-**Getting Azure Storage Credentials:**
-1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to Storage Account: `shopsphere`
-3. Go to **Security + networking** → **Access keys**
-4. Copy the **Connection string** from Key1 or Key2
-5. Paste it into your `.env` file
+**Note:** Azure Storage credentials are NOT needed in the webapp. Image uploads are handled by the product-catalog Azure Function.
 
 4. **Run the application:**
 ```bash
@@ -312,12 +306,35 @@ def get_auth_headers():
 
 ## Image Upload & CDN Integration
 
-### Overview
+### Architecture
 
-Product images are automatically uploaded to Azure Blob Storage and served via CDN:
+ShopSphere uses a **serverless architecture** for image uploads:
+
 ```
-https://shopsphere.blob.core.windows.net/cdn/{filename}
+┌─────────────────┐
+│   Flask WebApp  │  (Converts image to base64)
+└────────┬────────┘
+         │
+         │ POST /products with base64 image_data
+         ▼
+┌────────────────────┐
+│  Product-Catalog   │  (Uploads to Azure Storage)
+│  (Azure Function)  │
+└────────┬───────────┘
+         │
+         ▼
+┌────────────────────┐
+│  Azure Blob Storage│
+│   (CDN Container)  │
+└────────────────────┘
 ```
+
+**Key Points:**
+- ✅ Webapp has NO direct Azure Storage access
+- ✅ Webapp converts images to base64 and sends to Azure Function
+- ✅ Azure Function handles actual blob storage upload
+- ✅ Azure Function returns CDN URL
+- ✅ Images served from: `https://shopsphere.blob.core.windows.net/cdn/{filename}`
 
 ### Admin Image Upload (Web Interface)
 
@@ -332,114 +349,93 @@ https://shopsphere.blob.core.windows.net/cdn/{filename}
    - See preview of uploaded image
    - Submit form to create product with image
 
-3. **Supported Formats:**
+3. **What Happens:**
+   - Webapp reads the image file
+   - Webapp converts image to base64
+   - Webapp sends base64 data to product-catalog Azure Function
+   - Azure Function uploads to Azure Blob Storage
+   - Azure Function returns CDN URL
+   - Product is created with the CDN URL
+
+4. **Supported Formats:**
    - JPG/JPEG
    - PNG
    - GIF
    - WebP
    - Maximum size: 5MB
 
-### Command Line Upload (Bulk Upload)
+### Azure Function Configuration (Product-Catalog)
 
-Use the standalone script for uploading images before creating products:
+The **product-catalog Azure Function** requires Azure Storage credentials:
 
+**For Local Development:**
 ```bash
-cd webapp
-
-# Upload single image
-python upload_image.py product.jpg
-
-# Upload multiple images
-python upload_image.py image1.jpg image2.png image3.jpg
-
-# List all images in CDN
-python upload_image.py --list
-
-# Setup .env file template
-python upload_image.py --setup
+cd product-catalog
+cp .env.example .env
+# Edit .env and add:
+AZURE_STORAGE_CONNECTION_STRING=your_connection_string_here
 ```
 
-After upload, you'll get a CDN URL:
-```
-https://shopsphere.blob.core.windows.net/cdn/product.jpg
-```
-
-### Image Upload API
-
-**Endpoint:** `POST /admin/upload-image`
-
-**Authentication:** Admin only
-
-**Request:**
-```bash
-curl -X POST http://localhost:5000/admin/upload-image \
-  -H "Content-Type: multipart/form-data" \
-  -F "image=@product.jpg"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "image_url": "https://shopsphere.blob.core.windows.net/cdn/product.jpg",
-  "message": "Image uploaded successfully"
-}
-```
-
-**Response (Error):**
-```json
-{
-  "error": "File too large. Max size: 5.0MB"
-}
-```
-
-### Azure Storage Configuration
-
-The image upload feature requires Azure Storage credentials in `.env`:
-
-```env
-# Option 1: Connection String (Recommended)
-AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=shopsphere;AccountKey=YOUR_KEY;EndpointSuffix=core.windows.net
-
-# Option 2: Account Key (Alternative)
-AZURE_STORAGE_ACCOUNT_KEY=your_account_key_here
-```
+**For Azure Deployment:**
+1. Go to Azure Portal → Function App: `product-catalog-ffcjf2heceech3f6`
+2. Configuration → Application settings
+3. Add: `AZURE_STORAGE_CONNECTION_STRING`
 
 **Storage Details:**
 - **Storage Account:** `shopsphere`
 - **Container:** `cdn`
 - **Access Level:** Public blob access (read-only)
-- **Redundancy:** Based on Azure configuration
+
+### API Usage
+
+**Create Product with Image (Base64):**
+```http
+POST /api/products
+Authorization: Bearer {admin_session_token}
+Content-Type: application/json
+
+{
+  "name": "Laptop",
+  "price": 999.99,
+  "category": "Electronics",
+  "image_data": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+}
+
+Response:
+{
+  "success": true,
+  "product_id": 123,
+  "image_url": "https://shopsphere.blob.core.windows.net/cdn/laptop.jpg"
+}
+```
 
 ### Troubleshooting Image Upload
 
-**Error: "Azure credentials not configured"**
-- Add `AZURE_STORAGE_CONNECTION_STRING` to `.env` file
-- Get credentials from Azure Portal → Storage Account → Access Keys
+**Error: "Image upload failed"**
+- Verify Azure Function has `AZURE_STORAGE_CONNECTION_STRING` configured
+- Check Azure Portal → Function App → Configuration
+- Ensure `cdn` container exists in storage account
 
-**Error: "Invalid file type"**
+**Error: "Invalid image type"**
 - Only JPG, PNG, GIF, and WebP formats are supported
-- Check file extension
 
 **Error: "File too large"**
 - Maximum file size is 5MB
-- Compress image using [TinyPNG](https://tinypng.com/) or similar tools
+- Compress image using [TinyPNG](https://tinypng.com/)
 
-**Error: "Upload failed"**
-- Verify Azure credentials are correct
-- Check internet connection
-- Ensure `cdn` container exists in storage account
-- Test connection: `python upload_image.py --list`
+**Error: "Timeout"**
+- Large images may timeout during upload
+- Reduce image size or compress before uploading
 
-For detailed image upload documentation, see [IMAGE_UPLOAD_GUIDE.md](../IMAGE_UPLOAD_GUIDE.md)
+For detailed documentation, see [IMAGE_UPLOAD_GUIDE.md](../IMAGE_UPLOAD_GUIDE.md)
 
 ## Environment Variables
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | SECRET_KEY | Flask secret key for sessions | `dev-secret-key-change-in-production` | Yes |
-| AZURE_STORAGE_CONNECTION_STRING | Azure Storage connection string for image uploads | None | Yes (for image upload) |
-| AZURE_STORAGE_ACCOUNT_KEY | Alternative to connection string | None | No |
+
+**Note:** Azure Storage credentials are configured in the **product-catalog Azure Function**, not the webapp.
 
 ## Development
 
@@ -467,11 +463,12 @@ print(response.json())
 4. **CORS**: Configured on Azure Functions for webapp domain
 5. **Password Hashing**: Handled by User Auth service (bcrypt)
 6. **Image Upload Security**: 
-   - Admin-only access to upload endpoint
-   - File type validation (whitelist)
+   - Admin-only access to product creation
+   - File type validation (client and server-side)
    - File size limits (5MB max)
-   - Secure filename handling
-   - Azure Storage credentials never exposed to client
+   - Base64 encoding for transmission
+   - Azure Storage credentials isolated in Azure Function
+   - No direct storage access from webapp
 
 ## API Response Formats
 
@@ -505,8 +502,7 @@ print(response.json())
 - **Bootstrap Icons** - Icon library
 - **Requests** - HTTP library for API calls
 - **Azure Functions** - Serverless backend services
-- **Azure Blob Storage** - CDN for product images and static assets
-- **azure-storage-blob** - Python SDK for Azure Blob Storage
+- **Azure Blob Storage** - CDN for product images
 - **python-dotenv** - Environment variable management
 
 ## Future Enhancements
