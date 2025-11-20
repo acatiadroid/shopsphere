@@ -1,3 +1,4 @@
+# product-catalog/CreateProduct/__init__.py
 import json
 import logging
 import os
@@ -7,8 +8,16 @@ from datetime import datetime
 import azure.functions as func
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from shared.blob_utils import upload_image_base64
 from shared.db_utils import get_db_connection, verify_admin
+
+# Try to import blob_utils, but make it optional
+try:
+    from shared.blob_utils import upload_image_base64
+    BLOB_STORAGE_AVAILABLE = True
+    logging.info("Blob storage module loaded successfully")
+except Exception as e:
+    logging.warning(f"Blob storage not available: {str(e)}")
+    BLOB_STORAGE_AVAILABLE = False
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -52,17 +61,20 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     # Handle image upload if base64 data is provided
     if image_data:
-        try:
-            logging.info("Uploading image to Azure Blob Storage")
-            image_url = upload_image_base64(image_data, filename=name)
-            logging.info(f"Image uploaded: {image_url}")
-        except Exception as e:
-            logging.error(f"Image upload failed: {str(e)}")
-            return func.HttpResponse(
-                json.dumps({"error": f"Image upload failed: {str(e)}"}),
-                status_code=400,
-                mimetype="application/json",
-            )
+        if not BLOB_STORAGE_AVAILABLE:
+            logging.warning("Image data provided but blob storage module not available")
+            # For now, just skip image upload and create product without image
+            image_url = None
+        else:
+            try:
+                logging.info("Uploading image to Azure Blob Storage")
+                image_url = upload_image_base64(image_data, filename=name)
+                logging.info(f"Image uploaded successfully: {image_url}")
+            except Exception as e:
+                logging.error(f"Image upload failed: {str(e)}")
+                # Make image upload optional - don't fail the entire product creation
+                logging.warning("Continuing product creation without image")
+                image_url = None
 
     try:
         conn = get_db_connection()
@@ -106,7 +118,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.error(f"Create product error: {str(e)}")
         return func.HttpResponse(
-            json.dumps({"error": "Internal server error"}),
+            json.dumps({"error": f"Database error: {str(e)}"}),
             status_code=500,
             mimetype="application/json",
         )
