@@ -451,11 +451,44 @@ def checkout():
 
                 if data.get("success"):
                     order_id = data.get("order_id")
-                    # Checkout doesn't return transaction_id, just order_id
-                    flash(
-                        f"Order placed successfully! Order ID: {order_id}",
-                        "success",
-                    )
+                    total_amount = data.get("total_amount")
+
+                    # Automatically process payment for the order
+                    try:
+                        payment_response = requests.post(
+                            f"{PAYMENT_URL}/process-payment",
+                            json={
+                                "order_id": order_id,
+                                "amount": total_amount,
+                                "payment_method": payment_method,
+                            },
+                            headers=get_auth_headers(),
+                            timeout=15,
+                        )
+
+                        if payment_response.ok:
+                            payment_data = payment_response.json()
+                            if payment_data.get("success"):
+                                flash(
+                                    f"Order placed and paid successfully! Order ID: {order_id}",
+                                    "success",
+                                )
+                            else:
+                                flash(
+                                    f"Order created but payment failed: {payment_data.get('error', 'Unknown error')}",
+                                    "warning",
+                                )
+                        else:
+                            flash(
+                                f"Order created but payment processing failed. Order ID: {order_id}",
+                                "warning",
+                            )
+                    except Exception as payment_error:
+                        flash(
+                            f"Order created but payment error occurred: {str(payment_error)}. Order ID: {order_id}",
+                            "warning",
+                        )
+
                     return redirect(url_for("order_detail", order_id=order_id))
                 else:
                     error = data.get("error", "Checkout failed")
