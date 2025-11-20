@@ -1,12 +1,11 @@
+import base64
 import os
 from functools import wraps
 
-import blob_storage
 import requests
 from flask import (
     Flask,
     flash,
-    jsonify,
     redirect,
     render_template,
     request,
@@ -597,37 +596,6 @@ def remove_from_wishlist(wishlist_id):
     return redirect(url_for("wishlist"))
 
 
-@app.route("/admin/upload-image", methods=["POST"])
-@admin_required
-def upload_image():
-    """Upload image to Azure Blob Storage CDN"""
-    try:
-        # Check if file is present
-        if "image" not in request.files:
-            return jsonify({"error": "No file provided"}), 400
-
-        file = request.files["image"]
-
-        if file.filename == "":
-            return jsonify({"error": "No file selected"}), 400
-
-        # Upload to Azure Blob Storage
-        image_url = blob_storage.upload_image(file)
-
-        return jsonify(
-            {
-                "success": True,
-                "image_url": image_url,
-                "message": "Image uploaded successfully",
-            }
-        ), 200
-
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
-
-
 @app.route("/admin/products", methods=["GET", "POST"])
 @admin_required
 def admin_products():
@@ -641,38 +609,51 @@ def admin_products():
         image_url = request.form.get("image_url")
 
         # Handle image upload if file is provided
+        image_data = None
         if "product_image" in request.files:
             file = request.files["product_image"]
             if file and file.filename != "":
                 try:
-                    # Upload image and get URL
-                    image_url = blob_storage.upload_image(file)
-                    flash(f"Image uploaded successfully!", "success")
+                    # Read file and convert to base64
+                    file_bytes = file.read()
+                    image_data = base64.b64encode(file_bytes).decode("utf-8")
+
+                    # Add data URL prefix with content type
+                    content_type = file.content_type or "image/jpeg"
+                    image_data = f"data:{content_type};base64,{image_data}"
                 except Exception as e:
-                    flash(f"Image upload failed: {str(e)}", "warning")
-                    # Continue with product creation even if image upload fails
+                    flash(f"Failed to process image: {str(e)}", "warning")
 
         try:
+            # Prepare product data
+            product_data = {
+                "name": name,
+                "description": description,
+                "price": float(price),
+                "stock_quantity": int(stock_quantity),
+                "category": category,
+            }
+
+            # Add image data or URL
+            if image_data:
+                product_data["image_data"] = image_data
+            elif image_url:
+                product_data["image_url"] = image_url
             response = requests.post(
                 f"{PRODUCT_CATALOG_URL}/products",
-                json={
-                    "name": name,
-                    "description": description,
-                    "price": float(price),
-                    "stock_quantity": int(stock_quantity),
-                    "category": category,
-                    "image_url": image_url,
-                },
+                json=product_data,
                 headers=get_auth_headers(),
-                timeout=10,
+                timeout=30,  # Increased timeout for image upload
             )
 
             if response.ok:
                 data = response.json()
-                flash(
-                    f"Product '{name}' added successfully! ID: {data.get('product_id')}",
-                    "success",
+                success_msg = (
+                    f"Product '{name}' added successfully! ID: {data.get('product_id')}"
                 )
+                if image_data:
+                    success_msg += " (with image)"
+                flash(success_msg, "success")
                 return redirect(url_for("admin_products"))
             else:
                 error = response.json().get("error", "Failed to add product")
