@@ -11,7 +11,7 @@ from shared.db_utils import get_db_connection, verify_session
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    """Add item to wishlist"""
+    """Add item to wishlist."""
     logging.info("Add to wishlist function triggered")
 
     # Verify session

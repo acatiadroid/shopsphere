@@ -8,8 +8,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "payment/**"
   workflow_dispatch:
 
 env:

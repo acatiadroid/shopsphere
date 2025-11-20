@@ -8,8 +8,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "product-catalog/**"
   workflow_dispatch:
 
 env:
