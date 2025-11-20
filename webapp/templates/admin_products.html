@@ -1,0 +1,650 @@
+{% extends "base.html" %} {% block title %}Admin - Manage Products -
+ShopSphere{% endblock %} {% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h2">
+            <i class="bi bi-shield-lock"></i> Admin - Product Management
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}">Home</a>
+                </li>
+                <li class="breadcrumb-item active">Admin Products</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- Add Product Form -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-plus-circle"></i> Add New Product
+                </h5>
+            </div>
+            <div class="card-body">
+                <form
+                    method="POST"
+                    action="{{ url_for('admin_products') }}"
+                    enctype="multipart/form-data"
+                    id="productForm"
+                >
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label"
+                                >Product Name
+                                <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="name"
+                                name="name"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="category" class="form-label"
+                                >Category
+                                <span class="text-danger">*</span></label
+                            >
+                            <select
+                                class="form-select"
+                                id="category"
+                                name="category"
+                                required
+                            >
+                                <option value="">Select category...</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Clothing">Clothing</option>
+                                <option value="Books">Books</option>
+                                <option value="Home & Garden">
+                                    Home & Garden
+                                </option>
+                                <option value="Sports">Sports</option>
+                                <option value="Toys">Toys</option>
+                                <option value="Beauty">Beauty</option>
+                                <option value="Food & Beverage">
+                                    Food & Beverage
+                                </option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="price" class="form-label"
+                                >Price ($)
+                                <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="price"
+                                name="price"
+                                step="0.01"
+                                min="0"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="stock_quantity" class="form-label"
+                                >Stock Quantity</label
+                            >
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="stock_quantity"
+                                name="stock_quantity"
+                                min="0"
+                                value="0"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label"
+                            >Description</label
+                        >
+                        <textarea
+                            class="form-control"
+                            id="description"
+                            name="description"
+                            rows="3"
+                        ></textarea>
+                    </div>
+
+                    <!-- Image Upload Section -->
+                    <div class="mb-3">
+                        <label class="form-label">Product Image</label>
+
+                        <!-- File Input (hidden) -->
+                        <input
+                            type="file"
+                            class="d-none"
+                            id="product_image"
+                            name="product_image"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                        />
+
+                        <!-- Drag & Drop Zone -->
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-content">
+                                <i
+                                    class="bi bi-cloud-upload"
+                                    style="font-size: 3rem; color: #6c757d"
+                                ></i>
+                                <p class="mb-2 mt-2">
+                                    <strong
+                                        >Drop image here or click to
+                                        browse</strong
+                                    >
+                                </p>
+                                <p class="text-muted small">
+                                    JPG, PNG, GIF, WebP (Max 5MB)
+                                </p>
+                            </div>
+                            <div
+                                class="upload-preview d-none"
+                                id="uploadPreview"
+                            >
+                                <img src="" alt="Preview" id="previewImage" />
+                                <div class="preview-overlay">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger"
+                                        id="removeImage"
+                                    >
+                                        <i class="bi bi-trash"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                            <div
+                                class="upload-progress d-none"
+                                id="uploadProgress"
+                            >
+                                <div
+                                    class="spinner-border text-primary"
+                                    role="status"
+                                >
+                                    <span class="visually-hidden"
+                                        >Uploading...</span
+                                    >
+                                </div>
+                                <p class="mt-2">Uploading image...</p>
+                            </div>
+                        </div>
+
+                        <!-- Hidden field to store image URL -->
+                        <input type="hidden" id="image_url" name="image_url" />
+
+                        <small class="form-text text-muted">
+                            Upload an image or provide a URL below. Images are
+                            stored in Azure CDN.
+                        </small>
+                    </div>
+
+                    <div
+                        class="d-flex justify-content-between align-items-center"
+                    >
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                            id="submitBtn"
+                        >
+                            <i class="bi bi-plus-circle"></i> Add Product
+                        </button>
+                        <small class="text-muted"
+                            ><span class="text-danger">*</span> Required
+                            fields</small
+                        >
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-list"></i> All Products ({{ products|length
+                    }})
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                {% if products %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 80px">ID</th>
+                                <th style="width: 100px">Image</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th style="width: 120px">Price</th>
+                                <th style="width: 100px">Stock</th>
+                                <th style="width: 150px">Created</th>
+                                <th style="width: 200px">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                            <tr>
+                                <td><strong>#{{ product.id }}</strong></td>
+                                <td>
+                                    {% if product.image_url %}
+                                    <img
+                                        src="{{ product.image_url }}"
+                                        alt="{{ product.name }}"
+                                        class="img-thumbnail"
+                                        style="
+                                            max-width: 60px;
+                                            max-height: 60px;
+                                        "
+                                    />
+                                    {% else %}
+                                    <div
+                                        class="bg-light text-center"
+                                        style="
+                                            width: 60px;
+                                            height: 60px;
+                                            line-height: 60px;
+                                        "
+                                    >
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ product.name }}</strong>
+                                    {% if product.description %}
+                                    <br />
+                                    <small class="text-muted"
+                                        >{{ product.description[:50] }}{% if
+                                        product.description|length > 50 %}...{%
+                                        endif %}</small
+                                    >
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info"
+                                        >{{ product.category }}</span
+                                    >
+                                </td>
+                                <td>
+                                    <strong class="text-success"
+                                        >${{ "%.2f"|format(product.price)
+                                        }}</strong
+                                    >
+                                </td>
+                                <td>
+                                    {% if product.stock_quantity > 0 %}
+                                    <span class="badge bg-success"
+                                        >{{ product.stock_quantity }}</span
+                                    >
+                                    {% else %}
+                                    <span class="badge bg-danger"
+                                        >Out of Stock</span
+                                    >
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small
+                                        >{{ product.created_at[:10] if
+                                        product.created_at else 'N/A' }}</small
+                                    >
+                                </td>
+                                <td>
+                                    <a
+                                        href="{{ url_for('product_detail', product_id=product.id) }}"
+                                        class="btn btn-sm btn-outline-primary"
+                                        target="_blank"
+                                    >
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                    <button
+                                        class="btn btn-sm btn-outline-warning"
+                                        disabled
+                                    >
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <button
+                                        class="btn btn-sm btn-outline-danger"
+                                        disabled
+                                    >
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i
+                        class="bi bi-inbox text-muted"
+                        style="font-size: 4rem"
+                    ></i>
+                    <h5 class="mt-3 text-muted">No products yet</h5>
+                    <p class="text-muted">
+                        Add your first product using the form above
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product Statistics -->
+<div class="row mt-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i
+                    class="bi bi-box-seam text-primary"
+                    style="font-size: 2rem"
+                ></i>
+                <h4 class="mt-2">{{ products|length }}</h4>
+                <p class="text-muted mb-0">Total Products</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i
+                    class="bi bi-check-circle text-success"
+                    style="font-size: 2rem"
+                ></i>
+                <h4 class="mt-2">
+                    {{ products|selectattr('stock_quantity', 'gt',
+                    0)|list|length }}
+                </h4>
+                <p class="text-muted mb-0">In Stock</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i
+                    class="bi bi-x-circle text-danger"
+                    style="font-size: 2rem"
+                ></i>
+                <h4 class="mt-2">
+                    {{ products|selectattr('stock_quantity', 'eq',
+                    0)|list|length }}
+                </h4>
+                <p class="text-muted mb-0">Out of Stock</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-tags text-info" style="font-size: 2rem"></i>
+                <h4 class="mt-2">
+                    {{ products|map(attribute='category')|unique|list|length }}
+                </h4>
+                <p class="text-muted mb-0">Categories</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Tips -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="bi bi-info-circle"></i> Quick Tips:</h6>
+            <ul class="mb-0">
+                <li>
+                    Upload product images to Azure CDN before adding them:
+                    <code>https://shopsphere.blob.core.windows.net/cdn/</code>
+                </li>
+                <li>
+                    Use descriptive product names and clear descriptions for
+                    better customer experience
+                </li>
+                <li>Keep stock quantities updated to avoid overselling</li>
+                <li>Edit and Delete features coming soon!</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Back to Home -->
+<div class="row mt-3 mb-4">
+    <div class="col-12">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Store
+        </a>
+    </div>
+</div>
+
+{% endblock %} {% block extra_css %}
+<style>
+    .table td {
+        vertical-align: middle;
+    }
+
+    .img-thumbnail {
+        object-fit: cover;
+    }
+
+    .card {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-label {
+        font-weight: 500;
+    }
+
+    .badge {
+        font-size: 0.85rem;
+    }
+
+    /* Upload Zone Styles */
+    .upload-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        background-color: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .upload-zone:hover {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+
+    .upload-zone.dragover {
+        border-color: #0d6efd;
+        background-color: #cfe2ff;
+        transform: scale(1.02);
+    }
+
+    .upload-preview {
+        position: relative;
+        max-width: 100%;
+    }
+
+    .upload-preview img {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .preview-overlay {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+
+    .upload-progress {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+        .table {
+            font-size: 0.875rem;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .upload-zone {
+            padding: 1rem;
+            min-height: 150px;
+        }
+    }
+</style>
+{% endblock %} {% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const uploadZone = document.getElementById("uploadZone");
+        const fileInput = document.getElementById("product_image");
+        const uploadPreview = document.getElementById("uploadPreview");
+        const previewImage = document.getElementById("previewImage");
+        const uploadContent = uploadZone.querySelector(".upload-content");
+        const uploadProgress = document.getElementById("uploadProgress");
+        const removeImageBtn = document.getElementById("removeImage");
+        const imageUrlInput = document.getElementById("image_url");
+        const productForm = document.getElementById("productForm");
+
+        // Click to browse
+        uploadZone.addEventListener("click", function (e) {
+            if (
+                e.target.id !== "removeImage" &&
+                !e.target.closest("#removeImage")
+            ) {
+                fileInput.click();
+            }
+        });
+
+        // Drag and drop handlers
+        uploadZone.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            uploadZone.classList.add("dragover");
+        });
+
+        uploadZone.addEventListener("dragleave", function (e) {
+            e.preventDefault();
+            uploadZone.classList.remove("dragover");
+        });
+
+        uploadZone.addEventListener("drop", function (e) {
+            e.preventDefault();
+            uploadZone.classList.remove("dragover");
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener("change", function (e) {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Remove image
+        removeImageBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            resetUpload();
+        });
+
+        function handleFileSelect(file) {
+            // Validate file type
+            const allowedTypes = [
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+            ];
+            if (!allowedTypes.includes(file.type)) {
+                alert(
+                    "Invalid file type. Please upload JPG, PNG, GIF, or WebP images.",
+                );
+                return;
+            }
+
+            // Validate file size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert("File too large. Maximum size is 5MB.");
+                return;
+            }
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewImage.src = e.target.result;
+                uploadContent.classList.add("d-none");
+                uploadPreview.classList.remove("d-none");
+                uploadProgress.classList.add("d-none");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetUpload() {
+            fileInput.value = "";
+            imageUrlInput.value = "";
+            previewImage.src = "";
+            uploadContent.classList.remove("d-none");
+            uploadPreview.classList.add("d-none");
+            uploadProgress.classList.add("d-none");
+        }
+
+        // Form validation
+        productForm.addEventListener("submit", function (e) {
+            const name = document.getElementById("name").value.trim();
+            const price = parseFloat(document.getElementById("price").value);
+            const category = document.getElementById("category").value;
+
+            if (!name) {
+                alert("Please enter a product name");
+                e.preventDefault();
+                return;
+            }
+
+            if (!category) {
+                alert("Please select a category");
+                e.preventDefault();
+                return;
+            }
+
+            if (isNaN(price) || price < 0) {
+                alert("Please enter a valid price");
+                e.preventDefault();
+                return;
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,10 +1,12 @@
 import os
 from functools import wraps
 
+import blob_storage
 import requests
 from flask import (
     Flask,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -54,6 +56,26 @@ def login_required(f):
                 return redirect(url_for("login"))
         except Exception:
             pass  # Continue if verification fails temporarily
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def admin_required(f):
+    """Decorator to require admin access"""
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "session_token" not in session:
+            flash("Please login to access this page", "warning")
+            return redirect(url_for("login"))
+
+        # Check if user is admin (admin@gmail.com)
+        user = session.get("user", {})
+        if user.get("email") != "admin@gmail.com":
+            flash("Admin access required", "danger")
+            return redirect(url_for("index"))
 
         return f(*args, **kwargs)
 
@@ -575,13 +597,100 @@ def remove_from_wishlist(wishlist_id):
     return redirect(url_for("wishlist"))
 
 
-@app.route("/admin/products", methods=["GET"])
-@login_required
+@app.route("/admin/upload-image", methods=["POST"])
+@admin_required
+def upload_image():
+    """Upload image to Azure Blob Storage CDN"""
+    try:
+        # Check if file is present
+        if "image" not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+
+        file = request.files["image"]
+
+        if file.filename == "":
+            return jsonify({"error": "No file selected"}), 400
+
+        # Upload to Azure Blob Storage
+        image_url = blob_storage.upload_image(file)
+
+        return jsonify(
+            {
+                "success": True,
+                "image_url": image_url,
+                "message": "Image uploaded successfully",
+            }
+        ), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
+
+
+@app.route("/admin/products", methods=["GET", "POST"])
+@admin_required
 def admin_products():
-    """Admin page to manage products (for future use)"""
-    # This would require admin role checking
-    flash("Admin features coming soon", "info")
-    return redirect(url_for("index"))
+    """Admin page to manage products"""
+    if request.method == "POST":
+        name = request.form.get("name")
+        description = request.form.get("description")
+        price = request.form.get("price")
+        stock_quantity = request.form.get("stock_quantity", 0)
+        category = request.form.get("category")
+        image_url = request.form.get("image_url")
+
+        # Handle image upload if file is provided
+        if "product_image" in request.files:
+            file = request.files["product_image"]
+            if file and file.filename != "":
+                try:
+                    # Upload image and get URL
+                    image_url = blob_storage.upload_image(file)
+                    flash(f"Image uploaded successfully!", "success")
+                except Exception as e:
+                    flash(f"Image upload failed: {str(e)}", "warning")
+                    # Continue with product creation even if image upload fails
+
+        try:
+            response = requests.post(
+                f"{PRODUCT_CATALOG_URL}/products",
+                json={
+                    "name": name,
+                    "description": description,
+                    "price": float(price),
+                    "stock_quantity": int(stock_quantity),
+                    "category": category,
+                    "image_url": image_url,
+                },
+                headers=get_auth_headers(),
+                timeout=10,
+            )
+
+            if response.ok:
+                data = response.json()
+                flash(
+                    f"Product '{name}' added successfully! ID: {data.get('product_id')}",
+                    "success",
+                )
+                return redirect(url_for("admin_products"))
+            else:
+                error = response.json().get("error", "Failed to add product")
+                flash(error, "danger")
+        except Exception as e:
+            flash(f"Error adding product: {str(e)}", "danger")
+
+    # GET request - show form and product list
+    try:
+        response = requests.get(f"{PRODUCT_CATALOG_URL}/products", timeout=10)
+        products = response.json().get("products", []) if response.ok else []
+    except Exception as e:
+        flash(f"Error loading products: {str(e)}", "danger")
+        products = []
+
+    return render_template(
+        "admin_products.html", products=products, user=session.get("user")
+    )
 
 
 @app.route("/transactions")
