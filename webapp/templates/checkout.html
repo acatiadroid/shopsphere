@@ -327,6 +327,137 @@
                 </div>
             </div>
 
+            <!-- Shipping Address -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-truck"></i> Shipping Address
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        <i class="bi bi-info-circle"></i> Enter the address
+                        where you'd like your order delivered.
+                    </p>
+                    <div class="mb-3">
+                        <label for="shipping_name" class="form-label"
+                            >Full Name <span class="text-danger">*</span></label
+                        >
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="shipping_name"
+                            name="shipping_name"
+                            placeholder="John Doe"
+                            required
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label for="shipping_address_line1" class="form-label"
+                            >Address Line 1
+                            <span class="text-danger">*</span></label
+                        >
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="shipping_address_line1"
+                            name="shipping_address_line1"
+                            placeholder="123 Main Street"
+                            required
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label for="shipping_address_line2" class="form-label"
+                            >Address Line 2
+                            <small class="text-muted">(Optional)</small></label
+                        >
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="shipping_address_line2"
+                            name="shipping_address_line2"
+                            placeholder="Apt 4B"
+                        />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="shipping_city" class="form-label"
+                                >City <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="shipping_city"
+                                name="shipping_city"
+                                placeholder="New York"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="shipping_state" class="form-label"
+                                >State/Province
+                                <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="shipping_state"
+                                name="shipping_state"
+                                placeholder="NY"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="shipping_postal_code" class="form-label"
+                                >Postal Code
+                                <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="shipping_postal_code"
+                                name="shipping_postal_code"
+                                placeholder="10001"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="shipping_country" class="form-label"
+                                >Country
+                                <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="shipping_country"
+                                name="shipping_country"
+                                value="United States"
+                                placeholder="United States"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shipping_phone" class="form-label"
+                            >Phone Number
+                            <small class="text-muted">(Optional)</small></label
+                        >
+                        <input
+                            type="tel"
+                            class="form-control"
+                            id="shipping_phone"
+                            name="shipping_phone"
+                            placeholder="+1 (555) 123-4567"
+                        />
+                        <small class="form-text text-muted"
+                            >For delivery updates and questions</small
+                        >
+                    </div>
+                </div>
+            </div>
+
             <!-- Order Items Review -->
             <div class="card">
                 <div class="card-header bg-light">

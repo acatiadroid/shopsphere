@@ -352,8 +352,6 @@ def checkout():
             # Check if using a saved payment method or a new one
             payment_method_id = request.form.get("payment_method_id")
             payment_method = request.form.get("payment_method", "credit_card")
-            billing_address = request.form.get("billing_address", "")
-            shipping_address = request.form.get("shipping_address", "")
 
             # If using a saved payment method, fetch its details
             if payment_method_id and payment_method_id != "new":
@@ -374,12 +372,57 @@ def checkout():
                 except Exception:
                     pass  # Fall back to default payment_method if lookup fails
 
+            # Collect shipping address fields
+            shipping_name = request.form.get("shipping_name", "").strip()
+            shipping_address_line1 = request.form.get(
+                "shipping_address_line1", ""
+            ).strip()
+            shipping_address_line2 = request.form.get(
+                "shipping_address_line2", ""
+            ).strip()
+            shipping_city = request.form.get("shipping_city", "").strip()
+            shipping_state = request.form.get("shipping_state", "").strip()
+            shipping_postal_code = request.form.get("shipping_postal_code", "").strip()
+            shipping_country = request.form.get("shipping_country", "").strip()
+            shipping_phone = request.form.get("shipping_phone", "").strip()
+
+            # Validate required fields
+            if not all(
+                [
+                    shipping_name,
+                    shipping_address_line1,
+                    shipping_city,
+                    shipping_state,
+                    shipping_postal_code,
+                    shipping_country,
+                ]
+            ):
+                flash("Please fill in all required shipping address fields", "danger")
+                return redirect(url_for("checkout"))
+
+            # Format shipping address
+            shipping_address_parts = [
+                shipping_name,
+                shipping_address_line1,
+            ]
+            if shipping_address_line2:
+                shipping_address_parts.append(shipping_address_line2)
+            shipping_address_parts.extend(
+                [
+                    f"{shipping_city}, {shipping_state} {shipping_postal_code}",
+                    shipping_country,
+                ]
+            )
+            if shipping_phone:
+                shipping_address_parts.append(f"Phone: {shipping_phone}")
+
+            shipping_address = "\n".join(shipping_address_parts)
+
             # Call checkout Azure Function
             response = requests.post(
                 f"{PAYMENT_URL}/checkout",
                 json={
                     "payment_method": payment_method,
-                    "billing_address": billing_address,
                     "shipping_address": shipping_address,
                 },
                 headers=get_auth_headers(),
