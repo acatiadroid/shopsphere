@@ -1,5 +1,6 @@
 import base64
 import os
+from datetime import datetime
 from functools import wraps
 
 import requests
@@ -15,6 +16,22 @@ from flask import (
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+
+
+# Custom Jinja filters
+@app.template_filter("format_datetime")
+def format_datetime(date_string, format="%B %d, %Y at %I:%M %p"):
+    """Format ISO datetime string to readable format"""
+    if not date_string:
+        return "N/A"
+    try:
+        # Parse ISO format string
+        dt = datetime.fromisoformat(date_string.replace("Z", "+00:00"))
+        return dt.strftime(format)
+    except (ValueError, AttributeError):
+        # If parsing fails, return the string as-is or just the date part
+        return date_string[:10] if len(date_string) >= 10 else date_string
+
 
 # Azure Function URLs
 USER_AUTH_URL = "https://user-auth-feh2gugugngnbxbp.norwayeast-01.azurewebsites.net/api"
