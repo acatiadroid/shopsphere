@@ -17,6 +17,30 @@
 
 <div class="row">
     <div class="col-lg-8 mb-4">
+        <!-- Payment Failed Alert -->
+        {% if order.status == 'pending' %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <h5 class="alert-heading">
+                <i class="bi bi-exclamation-triangle-fill"></i> Payment Required
+            </h5>
+            <p class="mb-0">
+                Your order was created but payment was not completed. This can happen due to:
+            </p>
+            <ul class="mb-3 mt-2">
+                <li>Simulated payment failure (5% rate in demo system)</li>
+                <li>Insufficient funds</li>
+                <li>Card declined</li>
+                <li>Connection timeout</li>
+            </ul>
+            <hr>
+            <p class="mb-0">
+                <strong>No worries!</strong> Your order is saved. Click the "Retry Payment" button below to try again.
+                The demo payment system has a 95% success rate, so it should work on retry.
+            </p>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
         <!-- Order Header -->
         <div class="card mb-4">
             <div class="card-header bg-primary text-white">
@@ -153,7 +177,11 @@
                     </div>
                 </div>
 
-                {% if order.status == 'paid' %}
+                {% if order.status == 'pending' %}
+                <div class="alert alert-warning mt-3 mb-0">
+                    <i class="bi bi-exclamation-circle"></i> <strong>Awaiting Payment</strong> - Please complete payment to proceed with your order.
+                </div>
+                {% elif order.status == 'paid' %}
                 <div class="alert alert-info mt-3 mb-0">
                     <i class="bi bi-info-circle"></i> Your order is being prepared for shipment. Estimated delivery: 3-5 business days.
                 </div>
@@ -240,6 +268,16 @@
                 </div>
 
                 <div class="d-grid gap-2">
+                    {% if order.status == 'pending' %}
+                    <form action="{{ url_for('retry_payment', order_id=order.id) }}" method="post">
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="bi bi-credit-card"></i> Retry Payment
+                        </button>
+                    </form>
+                    <div class="alert alert-warning mb-0 small">
+                        <i class="bi bi-info-circle"></i> Payment failed. Click to try again.
+                    </div>
+                    {% endif %}
                     <a href="{{ url_for('orders') }}" class="btn btn-outline-primary">
                         <i class="bi bi-arrow-left"></i> Back to Orders
                     </a>

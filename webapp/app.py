@@ -933,5 +933,64 @@ def delete_payment_method(method_id):
     return redirect(url_for("payment_methods"))
 
 
+@app.route("/orders/<int:order_id>/retry-payment", methods=["POST"])
+@login_required
+def retry_payment(order_id):
+    """Retry payment for a pending order"""
+    try:
+        # Get order details first
+        order_response = requests.get(
+            f"{PAYMENT_URL}/orders/{order_id}",
+            headers=get_auth_headers(),
+            timeout=10,
+        )
+
+        if not order_response.ok:
+            flash("Order not found", "danger")
+            return redirect(url_for("orders"))
+
+        order_data = order_response.json()
+
+        # Check if order is still pending
+        if order_data.get("status") != "pending":
+            flash("Order is not pending payment", "warning")
+            return redirect(url_for("order_detail", order_id=order_id))
+
+        # Get payment method from form or use default
+        payment_method = request.form.get("payment_method", "credit_card")
+
+        # Process payment
+        payment_response = requests.post(
+            f"{PAYMENT_URL}/process-payment",
+            json={
+                "order_id": order_id,
+                "amount": order_data.get("total_amount"),
+                "payment_method": payment_method,
+            },
+            headers=get_auth_headers(),
+            timeout=15,
+        )
+
+        if payment_response.ok:
+            payment_data = payment_response.json()
+            if payment_data.get("success"):
+                flash(
+                    f"Payment successful! Transaction ID: {payment_data.get('transaction_id')}",
+                    "success",
+                )
+            else:
+                flash(
+                    f"Payment failed: {payment_data.get('error', 'Unknown error')}. Please try again.",
+                    "danger",
+                )
+        else:
+            flash("Payment processing failed. Please try again.", "danger")
+
+    except Exception as e:
+        flash(f"Error processing payment: {str(e)}", "danger")
+
+    return redirect(url_for("order_detail", order_id=order_id))
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
