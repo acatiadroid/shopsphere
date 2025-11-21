@@ -14,7 +14,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Add a new payment method for the user"""
     logging.info("AddPaymentMethod function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -42,7 +41,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     expiry_year = req_body.get("expiry_year")
     is_default = req_body.get("is_default", False)
 
-    # Validate required fields
     if not payment_type:
         return func.HttpResponse(
             json.dumps({"error": "Payment type is required"}),
@@ -50,20 +48,18 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    # Validate payment type
     valid_types = ["credit_card", "debit_card", "paypal", "apple_pay", "google_pay"]
     if payment_type not in valid_types:
         return func.HttpResponse(
             json.dumps(
                 {
-                    "error": f"Invalid payment type. Valid types: {', '.join(valid_types)}"
+                    "error": f"Invalid payment type. Must be one of: {', '.join(valid_types)}"
                 }
             ),
             status_code=400,
             mimetype="application/json",
         )
 
-    # For card types, validate card details
     if payment_type in ["credit_card", "debit_card"]:
         if not card_last_four or not cardholder_name:
             return func.HttpResponse(
@@ -76,7 +72,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
-        # Validate card_last_four is 4 digits
         if not (card_last_four.isdigit() and len(card_last_four) == 4):
             return func.HttpResponse(
                 json.dumps({"error": "Card last four must be exactly 4 digits"}),
@@ -84,11 +79,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
-        # Validate expiry if provided
         if expiry_month is not None:
             try:
-                month = int(expiry_month)
-                if month < 1 or month > 12:
+                expiry_month = int(expiry_month)
+                if expiry_month < 1 or expiry_month > 12:
                     return func.HttpResponse(
                         json.dumps({"error": "Expiry month must be between 1 and 12"}),
                         status_code=400,
@@ -103,10 +97,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if expiry_year is not None:
             try:
-                year = int(expiry_year)
-                if year < 2024:
+                expiry_year = int(expiry_year)
+                current_year = datetime.utcnow().year
+                if expiry_year < current_year or expiry_year > current_year + 20:
                     return func.HttpResponse(
-                        json.dumps({"error": "Expiry year must be 2024 or later"}),
+                        json.dumps(
+                            {
+                                "error": f"Expiry year must be between {current_year} and {current_year + 20}"
+                            }
+                        ),
                         status_code=400,
                         mimetype="application/json",
                     )
@@ -121,18 +120,18 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # If this is set as default, unset all other default payment methods
         if is_default:
             cursor.execute(
                 "UPDATE payment_methods SET is_default = 0 WHERE user_id = ?",
                 (user_id,),
             )
 
-        # Insert the new payment method
         cursor.execute(
             """
-            INSERT INTO payment_methods
-            (user_id, payment_type, card_last_four, card_brand, cardholder_name, expiry_month, expiry_year, is_default, created_at)
+            INSERT INTO payment_methods (
+                user_id, payment_type, card_last_four, card_brand, cardholder_name,
+                expiry_month, expiry_year, is_default, created_at
+            )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -150,26 +149,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         conn.commit()
 
-        # Get the new payment method ID
         result = cursor.execute("SELECT @@IDENTITY").fetchone()
-        payment_method_id = result[0] if result else None
+        payment_method_id = int(result[0]) if result else 0
 
         conn.close()
 
-        if not payment_method_id:
-            return func.HttpResponse(
-                json.dumps({"error": "Failed to retrieve payment method ID"}),
-                status_code=500,
-                mimetype="application/json",
-            )
-
-        logging.info(f"Payment method {payment_method_id} added for user {user_id}")
-
+        logging.info(f"Payment method added for user {user_id}")
         return func.HttpResponse(
             json.dumps(
                 {
                     "success": True,
-                    "payment_method_id": int(payment_method_id),
+                    "payment_method_id": payment_method_id,
                     "message": "Payment method added successfully",
                 }
             ),
@@ -179,9 +169,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     except Exception as e:
         logging.error(f"Add payment method error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

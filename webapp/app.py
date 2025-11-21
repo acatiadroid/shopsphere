@@ -18,22 +18,18 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 
 
-# Custom Jinja filters
 @app.template_filter("format_datetime")
 def format_datetime(date_string, format="%B %d, %Y at %I:%M %p"):
     """Format ISO datetime string to readable format"""
     if not date_string:
         return "N/A"
     try:
-        # Parse ISO format string
         dt = datetime.fromisoformat(date_string.replace("Z", "+00:00"))
         return dt.strftime(format)
     except (ValueError, AttributeError):
-        # If parsing fails, return the string as-is or just the date part
         return date_string[:10] if len(date_string) >= 10 else date_string
 
 
-# Azure Function URLs
 USER_AUTH_URL = "https://user-auth-feh2gugugngnbxbp.norwayeast-01.azurewebsites.net/api"
 PRODUCT_CATALOG_URL = (
     "https://product-catalog-ffcjf2heceech3f6.norwayeast-01.azurewebsites.net/api"
@@ -59,7 +55,6 @@ def login_required(f):
             flash("Please login to access this page", "warning")
             return redirect(url_for("login"))
 
-        # Verify session is still valid
         try:
             response = requests.post(
                 f"{USER_AUTH_URL}/auth/verify",
@@ -71,7 +66,7 @@ def login_required(f):
                 flash("Session expired. Please login again.", "warning")
                 return redirect(url_for("login"))
         except Exception:
-            pass  # Continue if verification fails temporarily
+            pass
 
         return f(*args, **kwargs)
 
@@ -87,7 +82,6 @@ def admin_required(f):
             flash("Please login to access this page", "warning")
             return redirect(url_for("login"))
 
-        # Check if user is admin (admin@gmail.com)
         user = session.get("user", {})
         if user.get("email") != "admin@gmail.com":
             flash("Admin access required", "danger")
@@ -102,11 +96,9 @@ def admin_required(f):
 def index():
     """Homepage with product listings"""
     try:
-        # Get products from Azure Function
         response = requests.get(f"{PRODUCT_CATALOG_URL}/products", timeout=10)
         products = response.json().get("products", []) if response.ok else []
 
-        # Get categories
         categories = list(set(p.get("category", "Other") for p in products))
         categories.sort()
 
@@ -247,7 +239,6 @@ def logout():
 def cart():
     """Shopping cart page"""
     try:
-        # Get cart items from Azure Function
         response = requests.get(
             f"{PRODUCT_CATALOG_URL}/cart",
             headers=get_auth_headers(),
@@ -257,12 +248,10 @@ def cart():
         if response.ok:
             data = response.json()
             cart_items = data.get("cart_items", [])
-            # Calculate total from item_total field or compute it
             total = data.get(
                 "total", sum(item.get("item_total", 0) for item in cart_items)
             )
 
-            # Transform data to match template expectations
             for item in cart_items:
                 product_data = item.get("product", {})
                 item["name"] = product_data.get("name")
@@ -366,11 +355,9 @@ def checkout():
     """Checkout page"""
     if request.method == "POST":
         try:
-            # Check if using a saved payment method or a new one
             payment_method_id = request.form.get("payment_method_id")
             payment_method = request.form.get("payment_method", "credit_card")
 
-            # If using a saved payment method, fetch its details
             if payment_method_id and payment_method_id != "new":
                 try:
                     pm_response = requests.get(
@@ -387,9 +374,8 @@ def checkout():
                         if selected_method:
                             payment_method = selected_method["payment_type"]
                 except Exception:
-                    pass  # Fall back to default payment_method if lookup fails
+                    pass
 
-            # Collect shipping address fields
             shipping_name = request.form.get("shipping_name", "").strip()
             shipping_address_line1 = request.form.get(
                 "shipping_address_line1", ""
@@ -403,7 +389,6 @@ def checkout():
             shipping_country = request.form.get("shipping_country", "").strip()
             shipping_phone = request.form.get("shipping_phone", "").strip()
 
-            # Validate required fields
             if not all(
                 [
                     shipping_name,
@@ -417,7 +402,6 @@ def checkout():
                 flash("Please fill in all required shipping address fields", "danger")
                 return redirect(url_for("checkout"))
 
-            # Format shipping address
             shipping_address_parts = [
                 shipping_name,
                 shipping_address_line1,
@@ -435,7 +419,6 @@ def checkout():
 
             shipping_address = "\n".join(shipping_address_parts)
 
-            # Call checkout Azure Function
             response = requests.post(
                 f"{PAYMENT_URL}/checkout",
                 json={
@@ -453,7 +436,6 @@ def checkout():
                     order_id = data.get("order_id")
                     total_amount = data.get("total_amount")
 
-                    # Automatically process payment for the order
                     try:
                         payment_response = requests.post(
                             f"{PAYMENT_URL}/process-payment",
@@ -502,9 +484,7 @@ def checkout():
 
         return redirect(url_for("checkout"))
 
-    # GET request - show checkout form
     try:
-        # Get cart items for display
         response = requests.get(
             f"{PRODUCT_CATALOG_URL}/cart",
             headers=get_auth_headers(),
@@ -518,7 +498,6 @@ def checkout():
                 "total", sum(item.get("item_total", 0) for item in cart_items)
             )
 
-            # Transform data to match template expectations
             for item in cart_items:
                 product_data = item.get("product", {})
                 item["name"] = product_data.get("name")
@@ -534,7 +513,6 @@ def checkout():
             flash("Your cart is empty", "warning")
             return redirect(url_for("cart"))
 
-        # Get saved payment methods
         payment_methods = []
         try:
             pm_response = requests.get(
@@ -546,7 +524,7 @@ def checkout():
                 pm_data = pm_response.json()
                 payment_methods = pm_data.get("payment_methods", [])
         except Exception:
-            pass  # Continue without payment methods if request fails
+            pass
 
         return render_template(
             "checkout.html",
@@ -590,7 +568,6 @@ def orders():
 def order_detail(order_id):
     """Order detail page with tracking"""
     try:
-        # Get order details
         response = requests.get(
             f"{PAYMENT_URL}/orders/{order_id}",
             headers=get_auth_headers(),
@@ -605,12 +582,10 @@ def order_detail(order_id):
             flash("Error loading order", "danger")
             return redirect(url_for("orders"))
 
-        # GetOrder returns flat structure with items included
         order_data = response.json()
         items = order_data.pop("items", [])
         order = order_data
 
-        # Transform items to match template expectations
         for item in items:
             product_data = item.get("product", {})
             item["name"] = product_data.get("name")
@@ -618,7 +593,6 @@ def order_detail(order_id):
             item["price"] = item.get("price_at_purchase", 0)
             item["subtotal"] = item.get("item_total", 0)
 
-        # Get tracking information
         try:
             tracking_response = requests.get(
                 f"{PAYMENT_URL}/orders/{order_id}/track",
@@ -630,7 +604,7 @@ def order_detail(order_id):
                 tracking_data = tracking_response.json()
                 order["tracking"] = tracking_data.get("tracking", {})
         except Exception:
-            pass  # Tracking is optional
+            pass
 
         return render_template(
             "order_detail.html", order=order, items=items, user=session.get("user")
@@ -655,7 +629,6 @@ def wishlist():
             data = response.json()
             wishlist_items = data.get("wishlist_items", [])
 
-            # Transform data to match template expectations
             for item in wishlist_items:
                 product_data = item.get("product", {})
                 item["name"] = product_data.get("name")
@@ -737,24 +710,20 @@ def admin_products():
         category = request.form.get("category")
         image_url = request.form.get("image_url")
 
-        # Handle image upload if file is provided
         image_data = None
         if "product_image" in request.files:
             file = request.files["product_image"]
             if file and file.filename != "":
                 try:
-                    # Read file and convert to base64
                     file_bytes = file.read()
                     image_data = base64.b64encode(file_bytes).decode("utf-8")
 
-                    # Add data URL prefix with content type
                     content_type = file.content_type or "image/jpeg"
                     image_data = f"data:{content_type};base64,{image_data}"
                 except Exception as e:
                     flash(f"Failed to process image: {str(e)}", "warning")
 
         try:
-            # Prepare product data
             product_data = {
                 "name": name,
                 "description": description,
@@ -763,7 +732,6 @@ def admin_products():
                 "category": category,
             }
 
-            # Add image data or URL
             if image_data:
                 product_data["image_data"] = image_data
             elif image_url:
@@ -772,7 +740,7 @@ def admin_products():
                 f"{PRODUCT_CATALOG_URL}/products",
                 json=product_data,
                 headers=get_auth_headers(),
-                timeout=30,  # Increased timeout for image upload
+                timeout=30,
             )
 
             if response.ok:
@@ -790,7 +758,6 @@ def admin_products():
         except Exception as e:
             flash(f"Error adding product: {str(e)}", "danger")
 
-    # GET request - show form and product list
     try:
         response = requests.get(f"{PRODUCT_CATALOG_URL}/products", timeout=10)
         products = response.json().get("products", []) if response.ok else []
@@ -837,7 +804,6 @@ def transactions():
 def payment_methods():
     """Manage payment methods"""
     try:
-        # Get user's payment methods
         response = requests.get(
             f"{USER_AUTH_URL}/payment-methods",
             headers=get_auth_headers(),
@@ -875,13 +841,11 @@ def add_payment_method():
         expiry_year = request.form.get("expiry_year", "").strip()
         is_default = request.form.get("is_default") == "on"
 
-        # Build payload
         payload = {
             "payment_type": payment_type,
             "is_default": is_default,
         }
 
-        # Add card details if it's a card payment type
         if payment_type in ["credit_card", "debit_card"]:
             payload["card_last_four"] = card_last_four
             payload["card_brand"] = card_brand
@@ -938,7 +902,6 @@ def delete_payment_method(method_id):
 def retry_payment(order_id):
     """Retry payment for a pending order"""
     try:
-        # Get order details first
         order_response = requests.get(
             f"{PAYMENT_URL}/orders/{order_id}",
             headers=get_auth_headers(),
@@ -951,15 +914,12 @@ def retry_payment(order_id):
 
         order_data = order_response.json()
 
-        # Check if order is still pending
         if order_data.get("status") != "pending":
             flash("Order is not pending payment", "warning")
             return redirect(url_for("order_detail", order_id=order_id))
 
-        # Get payment method from form or use default
         payment_method = request.form.get("payment_method", "credit_card")
 
-        # Process payment
         payment_response = requests.post(
             f"{PAYMENT_URL}/process-payment",
             json={

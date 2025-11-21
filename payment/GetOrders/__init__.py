@@ -13,7 +13,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Get user's orders"""
     logging.info("Get orders function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -58,16 +57,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn.close()
 
         return func.HttpResponse(
-            json.dumps({"orders": orders, "count": len(orders)}),
+            json.dumps({"orders": orders}),
             status_code=200,
             mimetype="application/json",
         )
 
     except Exception as e:
         logging.error(f"Get orders error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

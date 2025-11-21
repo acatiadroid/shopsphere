@@ -13,7 +13,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Get user's transaction history"""
     logging.info("Get transactions function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 

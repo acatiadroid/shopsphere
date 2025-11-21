@@ -14,7 +14,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Convert cart to order"""
     logging.info("Checkout function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -47,7 +46,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Get cart items
         cursor.execute(
             """
             SELECT c.product_id, c.quantity, p.price, p.stock_quantity, p.name
@@ -67,7 +65,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
-        # Calculate total and verify stock
         total_amount = 0
         order_items = []
         for item in cart_items:
@@ -91,7 +88,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
 
-        # Create order
         cursor.execute(
             """
             INSERT INTO orders (user_id, total_amount, status, shipping_address, created_at)
@@ -103,7 +99,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         order_id = cursor.execute("SELECT @@IDENTITY").fetchone()[0]
 
-        # Create order items and update stock
         for item in order_items:
             cursor.execute(
                 """
@@ -113,13 +108,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 (order_id, item["product_id"], item["quantity"], item["price"]),
             )
 
-            # Update product stock
             cursor.execute(
                 "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?",
                 (item["quantity"], item["product_id"]),
             )
 
-        # Clear cart
         cursor.execute("DELETE FROM cart_items WHERE user_id = ?", (user_id,))
 
         conn.commit()

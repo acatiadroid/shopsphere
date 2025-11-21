@@ -13,7 +13,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Get user's wishlist"""
     logging.info("Get wishlist function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -30,12 +29,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         cursor.execute(
             """
-            SELECT w.id, w.product_id, w.added_at,
-                   p.name, p.description, p.price, p.image_url, p.stock_quantity
+            SELECT w.id, w.product_id, p.name, p.price, p.image_url, p.stock_quantity
             FROM wishlist w
             JOIN products p ON w.product_id = p.id
             WHERE w.user_id = ?
-            ORDER BY w.added_at DESC
             """,
             (user_id,),
         )
@@ -46,13 +43,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 {
                     "id": row[0],
                     "product_id": row[1],
-                    "added_at": row[2].isoformat() if row[2] else None,
                     "product": {
-                        "name": row[3],
-                        "description": row[4],
-                        "price": float(row[5]),
-                        "image_url": row[6],
-                        "stock_quantity": row[7],
+                        "name": row[2],
+                        "price": float(row[3]),
+                        "image_url": row[4],
+                        "stock_quantity": row[5],
                     },
                 }
             )
@@ -60,18 +55,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn.close()
 
         return func.HttpResponse(
-            json.dumps(
-                {"wishlist_items": wishlist_items, "item_count": len(wishlist_items)}
-            ),
+            json.dumps({"wishlist_items": wishlist_items}),
             status_code=200,
             mimetype="application/json",
         )
 
     except Exception as e:
         logging.error(f"Get wishlist error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

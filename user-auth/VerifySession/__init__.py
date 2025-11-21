@@ -11,35 +11,29 @@ from shared.db_utils import get_db_connection
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    """Verify session token"""
+    """Verify session token endpoint"""
     logging.info("Verify session function triggered")
 
     try:
         req_body = req.get_json()
-        session_token = req_body.get("session_token")
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
+        )
 
-        if not session_token:
-            return func.HttpResponse(
-                json.dumps({"success": False, "error": "Session token required"}),
-                status_code=400,
-                mimetype="application/json",
-            )
+    session_token = req_body.get("session_token")
 
-        logging.info(f"Verifying session token")
+    if not session_token:
+        return func.HttpResponse(
+            json.dumps({"error": "Session token required"}),
+            status_code=400,
+            mimetype="application/json",
+        )
 
-        # Connect to database
-        try:
-            conn = get_db_connection()
-        except Exception as e:
-            logging.error(f"Database connection failed: {str(e)}")
-            return func.HttpResponse(
-                json.dumps(
-                    {"success": False, "error": f"Database connection error: {str(e)}"}
-                ),
-                status_code=500,
-                mimetype="application/json",
-            )
-
+    try:
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute(
@@ -47,7 +41,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT u.id, u.email, u.name, s.expires_at
             FROM sessions s
             JOIN shopusers u ON s.user_id = u.id
-            WHERE s.token = ?
+            WHERE s.session_token = ?
             """,
             (session_token,),
         )
@@ -65,12 +59,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         user_id, email, name, expires_at = result
         user_id = int(user_id)
 
-        # Check if session expired
         if expires_at < datetime.utcnow():
-            cursor.execute("DELETE FROM sessions WHERE token = ?", (session_token,))
+            cursor.execute(
+                "DELETE FROM sessions WHERE session_token = ?", (session_token,)
+            )
             conn.commit()
             conn.close()
-            logging.warning(f"Session expired for user: {email}")
+            logging.warning(f"Session expired for user {email}")
             return func.HttpResponse(
                 json.dumps({"valid": False, "error": "Session expired"}),
                 status_code=401,
@@ -79,7 +74,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         conn.close()
 
-        logging.info(f"Session verified for user: {email}")
+        logging.info(f"Session verified for user {user_id}")
         return func.HttpResponse(
             json.dumps(
                 {
@@ -88,7 +83,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                         "id": user_id,
                         "email": email,
                         "name": name,
-                        "is_admin": (email == "admin@gmail.com"),
                     },
                 }
             ),
@@ -96,20 +90,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    except ValueError:
-        logging.error("Invalid JSON in request")
-        return func.HttpResponse(
-            json.dumps({"success": False, "error": "Invalid JSON"}),
-            status_code=400,
-            mimetype="application/json",
-        )
     except Exception as e:
-        logging.error(f"Error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
+        logging.error(f"Verify session error: {str(e)}")
         return func.HttpResponse(
-            json.dumps({"success": False, "error": str(e)}),
+            json.dumps({"error": "Internal server error"}),
             status_code=500,
             mimetype="application/json",
         )

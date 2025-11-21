@@ -13,7 +13,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Delete a payment method"""
     logging.info("DeletePaymentMethod function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -24,7 +23,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    # Get payment method ID from route parameter
     payment_method_id = req.route_params.get("id")
 
     if not payment_method_id:
@@ -35,19 +33,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     try:
-        payment_method_id = int(payment_method_id)
-    except (ValueError, TypeError):
-        return func.HttpResponse(
-            json.dumps({"error": "Invalid payment method ID"}),
-            status_code=400,
-            mimetype="application/json",
-        )
-
-    try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Verify the payment method belongs to the user
         cursor.execute(
             "SELECT id FROM payment_methods WHERE id = ? AND user_id = ?",
             (payment_method_id, user_id),
@@ -61,7 +49,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
-        # Delete the payment method
         cursor.execute(
             "DELETE FROM payment_methods WHERE id = ? AND user_id = ?",
             (payment_method_id, user_id),
@@ -71,20 +58,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn.close()
 
         logging.info(f"Payment method {payment_method_id} deleted for user {user_id}")
-
         return func.HttpResponse(
-            json.dumps(
-                {"success": True, "message": "Payment method deleted successfully"}
-            ),
+            json.dumps({"success": True, "message": "Payment method deleted"}),
             status_code=200,
             mimetype="application/json",
         )
 
     except Exception as e:
         logging.error(f"Delete payment method error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

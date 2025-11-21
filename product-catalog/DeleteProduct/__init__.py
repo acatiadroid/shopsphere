@@ -15,7 +15,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     product_id = req.route_params.get("id")
 
-    # Verify admin
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     is_admin, user_id = verify_admin(session_token)
 

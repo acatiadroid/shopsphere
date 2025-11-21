@@ -13,7 +13,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Get user's shopping cart"""
     logging.info("Get cart function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -30,12 +29,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         cursor.execute(
             """
-            SELECT c.id, c.product_id, c.quantity, c.added_at,
-                   p.name, p.description, p.price, p.image_url, p.stock_quantity
+            SELECT c.id, c.product_id, c.quantity, p.name, p.price, p.image_url, p.stock_quantity
             FROM cart_items c
             JOIN products p ON c.product_id = p.id
             WHERE c.user_id = ?
-            ORDER BY c.added_at DESC
             """,
             (user_id,),
         )
@@ -43,44 +40,33 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cart_items = []
         total = 0
         for row in cursor.fetchall():
-            item_total = float(row[6]) * row[2]
-            total += item_total
+            item_total = float(row[4]) * row[2]
             cart_items.append(
                 {
                     "id": row[0],
                     "product_id": row[1],
                     "quantity": row[2],
-                    "added_at": row[3].isoformat() if row[3] else None,
                     "product": {
-                        "name": row[4],
-                        "description": row[5],
-                        "price": float(row[6]),
-                        "image_url": row[7],
-                        "stock_quantity": row[8],
+                        "name": row[3],
+                        "price": float(row[4]),
+                        "image_url": row[5],
+                        "stock_quantity": row[6],
                     },
                     "item_total": item_total,
                 }
             )
+            total += item_total
 
         conn.close()
 
         return func.HttpResponse(
-            json.dumps(
-                {
-                    "cart_items": cart_items,
-                    "total": total,
-                    "item_count": len(cart_items),
-                }
-            ),
+            json.dumps({"cart_items": cart_items, "total": total}),
             status_code=200,
             mimetype="application/json",
         )
 
     except Exception as e:
         logging.error(f"Get cart error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

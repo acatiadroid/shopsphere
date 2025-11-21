@@ -15,7 +15,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     transaction_id = req.route_params.get("id")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -34,34 +33,35 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, order_id, amount, payment_method, status, transaction_id, created_at
             FROM transactions
-            WHERE transaction_id = ? AND user_id = ?
+            WHERE id = ? AND user_id = ?
             """,
             (transaction_id, user_id),
         )
 
-        row = cursor.fetchone()
+        transaction = cursor.fetchone()
 
-        if not row:
+        if not transaction:
+            conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Transaction not found"}),
                 status_code=404,
                 mimetype="application/json",
             )
 
-        transaction = {
-            "id": row[0],
-            "order_id": row[1],
-            "amount": float(row[2]),
-            "payment_method": row[3],
-            "status": row[4],
-            "transaction_id": row[5],
-            "created_at": row[6].isoformat() if row[6] else None,
-        }
-
         conn.close()
 
+        transaction_dict = {
+            "id": transaction[0],
+            "order_id": transaction[1],
+            "amount": float(transaction[2]),
+            "payment_method": transaction[3],
+            "status": transaction[4],
+            "transaction_id": transaction[5],
+            "created_at": transaction[6].isoformat() if transaction[6] else None,
+        }
+
         return func.HttpResponse(
-            json.dumps(transaction),
+            json.dumps(transaction_dict),
             status_code=200,
             mimetype="application/json",
         )

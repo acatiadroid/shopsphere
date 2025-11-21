@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime
 
 import azure.functions as func
 
@@ -15,7 +16,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     cart_item_id = req.route_params.get("id")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -37,7 +37,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     quantity = req_body.get("quantity")
 
-    if quantity is None or quantity < 1:
+    if not quantity or quantity < 1:
         return func.HttpResponse(
             json.dumps({"error": "Quantity must be at least 1"}),
             status_code=400,
@@ -48,7 +48,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Get cart item and verify ownership
         cursor.execute(
             "SELECT product_id FROM cart_items WHERE id = ? AND user_id = ?",
             (cart_item_id, user_id),
@@ -65,7 +64,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         product_id = cart_item[0]
 
-        # Check stock availability
         cursor.execute(
             "SELECT stock_quantity FROM products WHERE id = ?", (product_id,)
         )
@@ -73,17 +71,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if not product or product[0] < quantity:
             conn.close()
+            available = product[0] if product else 0
             return func.HttpResponse(
-                json.dumps(
-                    {
-                        "error": f"Not enough stock. Available: {product[0] if product else 0}"
-                    }
-                ),
+                json.dumps({"error": f"Not enough stock. Available: {available}"}),
                 status_code=400,
                 mimetype="application/json",
             )
 
-        # Update quantity
         cursor.execute(
             "UPDATE cart_items SET quantity = ? WHERE id = ?",
             (quantity, cart_item_id),
@@ -91,12 +85,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn.commit()
         conn.close()
 
+        logging.info(f"Cart item {cart_item_id} updated to quantity {quantity}")
         return func.HttpResponse(
             json.dumps(
                 {
                     "success": True,
                     "cart_item_id": int(cart_item_id),
                     "quantity": quantity,
+                    "message": "Cart updated",
                 }
             ),
             status_code=200,
@@ -105,9 +101,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     except Exception as e:
         logging.error(f"Update cart item error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

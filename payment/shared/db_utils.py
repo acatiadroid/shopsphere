@@ -1,6 +1,5 @@
 import logging
 import os
-import secrets
 from datetime import datetime
 
 import pyodbc
@@ -13,11 +12,8 @@ def get_db_connection():
     if not conn_str:
         raise ValueError("SqlConnectionString environment variable not set")
 
-    logging.info("Attempting database connection")
-
     try:
         conn = pyodbc.connect(conn_str)
-        logging.info("Database connection established")
         return conn
     except Exception as e:
         logging.error(f"Database connection failed: {str(e)}")
@@ -38,7 +34,7 @@ def verify_session(session_token):
             SELECT u.id
             FROM sessions s
             JOIN shopusers u ON s.user_id = u.id
-            WHERE s.token = ? AND s.expires_at > ?
+            WHERE s.session_token = ? AND s.expires_at > ?
             """,
             (session_token, datetime.utcnow()),
         )
@@ -51,6 +47,33 @@ def verify_session(session_token):
         return None
 
 
-def generate_transaction_id():
-    """Generate unique transaction ID"""
-    return f"TXN-{secrets.token_hex(8).upper()}"
+def verify_admin(session_token):
+    """Verify session and check if user is admin. Returns (is_admin, user_id)"""
+    if not session_token:
+        return False, None
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT u.id, u.email
+            FROM sessions s
+            JOIN shopusers u ON s.user_id = u.id
+            WHERE s.session_token = ? AND s.expires_at > ?
+            """,
+            (session_token, datetime.utcnow()),
+        )
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
+            return False, None
+
+        user_id, email = result
+        is_admin = email == "admin@gmail.com"
+        return is_admin, user_id
+    except Exception as e:
+        logging.error(f"Admin verification error: {str(e)}")
+        return False, None

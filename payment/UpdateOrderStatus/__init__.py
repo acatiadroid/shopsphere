@@ -7,7 +7,7 @@ from datetime import datetime
 import azure.functions as func
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from shared.db_utils import get_db_connection, verify_session
+from shared.db_utils import get_db_connection, verify_admin
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -16,88 +16,75 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     order_id = req.route_params.get("id")
 
-    # Verify admin
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
-    user_id = verify_session(session_token)
+    is_admin, user_id = verify_admin(session_token)
 
-    if not user_id:
+    if not is_admin:
         return func.HttpResponse(
             json.dumps({"error": "Unauthorized"}),
-            status_code=401,
+            status_code=403,
             mimetype="application/json",
         )
 
-    # Check if admin
+    try:
+        req_body = req.get_json()
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    status = req_body.get("status")
+    tracking_number = req_body.get("tracking_number")
+
+    valid_statuses = ["pending", "paid", "shipped", "delivered", "cancelled"]
+    if status and status not in valid_statuses:
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+                }
+            ),
+            status_code=400,
+            mimetype="application/json",
+        )
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT email FROM shopusers WHERE id = ?", (user_id,))
-        user = cursor.fetchone()
+        cursor.execute("SELECT id, status FROM orders WHERE id = ?", (order_id,))
+        order = cursor.fetchone()
 
-        if not user or user[0] != "admin@gmail.com":
+        if not order:
             conn.close()
             return func.HttpResponse(
-                json.dumps({"error": "Forbidden - Admin access required"}),
-                status_code=403,
+                json.dumps({"error": "Order not found"}),
+                status_code=404,
                 mimetype="application/json",
             )
 
-        # Get request body
-        try:
-            req_body = req.get_json()
-        except ValueError:
-            conn.close()
-            return func.HttpResponse(
-                json.dumps({"error": "Invalid JSON"}),
-                status_code=400,
-                mimetype="application/json",
-            )
-
-        status = req_body.get("status")
-        tracking_number = req_body.get("tracking_number")
-
-        valid_statuses = [
-            "pending",
-            "paid",
-            "processing",
-            "shipped",
-            "delivered",
-            "cancelled",
-        ]
-        if status and status not in valid_statuses:
-            conn.close()
-            return func.HttpResponse(
-                json.dumps(
-                    {
-                        "error": f"Invalid status. Valid statuses: {', '.join(valid_statuses)}"
-                    }
-                ),
-                status_code=400,
-                mimetype="application/json",
-            )
-
-        # Build update query
-        updates = []
+        update_fields = []
         params = []
 
         if status:
-            updates.append("status = ?")
+            update_fields.append("status = ?")
             params.append(status)
 
-            # Set timestamps based on status
-            if status == "shipped":
-                updates.append("shipped_at = ?")
+            if status == "shipped" and order[1] != "shipped":
+                update_fields.append("shipped_at = ?")
                 params.append(datetime.utcnow())
-            elif status == "delivered":
-                updates.append("delivered_at = ?")
+
+            if status == "delivered" and order[1] != "delivered":
+                update_fields.append("delivered_at = ?")
                 params.append(datetime.utcnow())
 
         if tracking_number:
-            updates.append("tracking_number = ?")
+            update_fields.append("tracking_number = ?")
             params.append(tracking_number)
 
-        if not updates:
+        if not update_fields:
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "No fields to update"}),
@@ -106,40 +93,21 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         params.append(order_id)
-        query = f"UPDATE orders SET {', '.join(updates)} WHERE id = ?"
+        query = f"UPDATE orders SET {', '.join(update_fields)} WHERE id = ?"
 
-        cursor.execute(query, params)
+        cursor.execute(query, tuple(params))
         conn.commit()
-
-        if cursor.rowcount == 0:
-            conn.close()
-            return func.HttpResponse(
-                json.dumps({"error": "Order not found"}),
-                status_code=404,
-                mimetype="application/json",
-            )
-
         conn.close()
 
-        logging.info(f"Order {order_id} status updated to {status}")
+        logging.info(f"Order {order_id} updated successfully")
         return func.HttpResponse(
-            json.dumps(
-                {
-                    "success": True,
-                    "order_id": int(order_id),
-                    "status": status,
-                    "tracking_number": tracking_number,
-                }
-            ),
+            json.dumps({"success": True, "message": "Order updated successfully"}),
             status_code=200,
             mimetype="application/json",
         )
 
     except Exception as e:
         logging.error(f"Update order status error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

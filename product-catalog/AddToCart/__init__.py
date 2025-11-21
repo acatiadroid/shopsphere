@@ -14,7 +14,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Add item to shopping cart"""
     logging.info("Add to cart function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -55,7 +54,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Check if product exists and has enough stock
         cursor.execute(
             "SELECT id, name, stock_quantity FROM products WHERE id = ?",
             (product_id,),
@@ -78,7 +76,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
-        # Check if item already in cart
         cursor.execute(
             "SELECT id, quantity FROM cart_items WHERE user_id = ? AND product_id = ?",
             (user_id, product_id),
@@ -86,7 +83,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         existing = cursor.fetchone()
 
         if existing:
-            # Update quantity
             new_quantity = existing[1] + quantity
             if new_quantity > product[2]:
                 conn.close()
@@ -107,16 +103,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 json.dumps(
                     {
                         "success": True,
-                        "message": "Cart updated",
                         "cart_item_id": existing[0],
                         "quantity": new_quantity,
+                        "message": "Cart updated",
                     }
                 ),
                 status_code=200,
                 mimetype="application/json",
             )
         else:
-            # Add new item
             cursor.execute(
                 "INSERT INTO cart_items (user_id, product_id, quantity, added_at) VALUES (?, ?, ?, ?)",
                 (user_id, product_id, quantity, datetime.utcnow()),
@@ -130,9 +125,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 json.dumps(
                     {
                         "success": True,
-                        "message": "Item added to cart",
                         "cart_item_id": int(cart_item_id),
+                        "product_id": product_id,
                         "quantity": quantity,
+                        "message": "Product added to cart",
                     }
                 ),
                 status_code=201,
@@ -141,9 +137,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     except Exception as e:
         logging.error(f"Add to cart error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

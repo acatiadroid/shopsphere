@@ -10,12 +10,11 @@ from shared.db_utils import get_db_connection, verify_session
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    """Track order delivery status"""
+    """Track order status and shipment"""
     logging.info("Track order function triggered")
 
     order_id = req.route_params.get("id")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -32,12 +31,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         cursor.execute(
             """
-            SELECT status, tracking_number, created_at, paid_at, shipped_at, delivered_at
+            SELECT id, status, tracking_number, created_at, paid_at, shipped_at, delivered_at
             FROM orders
             WHERE id = ? AND user_id = ?
             """,
             (order_id, user_id),
         )
+
         order = cursor.fetchone()
 
         if not order:
@@ -50,29 +50,42 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         conn.close()
 
-        tracking_info = {
-            "order_id": int(order_id),
-            "status": order[0],
-            "tracking_number": order[1],
-            "timeline": {
-                "ordered": order[2].isoformat() if order[2] else None,
-                "paid": order[3].isoformat() if order[3] else None,
-                "shipped": order[4].isoformat() if order[4] else None,
-                "delivered": order[5].isoformat() if order[5] else None,
-            },
+        tracking = {
+            "order_id": order[0],
+            "status": order[1],
+            "tracking_number": order[2],
+            "created_at": order[3].isoformat() if order[3] else None,
+            "paid_at": order[4].isoformat() if order[4] else None,
+            "shipped_at": order[5].isoformat() if order[5] else None,
+            "delivered_at": order[6].isoformat() if order[6] else None,
         }
 
+        status_history = []
+        if order[3]:
+            status_history.append(
+                {"status": "pending", "timestamp": order[3].isoformat()}
+            )
+        if order[4]:
+            status_history.append({"status": "paid", "timestamp": order[4].isoformat()})
+        if order[5]:
+            status_history.append(
+                {"status": "shipped", "timestamp": order[5].isoformat()}
+            )
+        if order[6]:
+            status_history.append(
+                {"status": "delivered", "timestamp": order[6].isoformat()}
+            )
+
+        tracking["status_history"] = status_history
+
         return func.HttpResponse(
-            json.dumps(tracking_info),
+            json.dumps({"tracking": tracking}),
             status_code=200,
             mimetype="application/json",
         )
 
     except Exception as e:
         logging.error(f"Track order error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,

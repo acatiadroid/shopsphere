@@ -15,7 +15,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     product_id = req.route_params.get("id")
 
-    # Verify admin
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     is_admin, user_id = verify_admin(session_token)
 
@@ -39,7 +38,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Build dynamic update query
         update_fields = []
         params = []
 
@@ -68,6 +66,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             params.append(req_body["image_url"])
 
         if not update_fields:
+            conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "No fields to update"}),
                 status_code=400,
@@ -81,6 +80,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn.commit()
 
         if cursor.rowcount == 0:
+            conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Product not found"}),
                 status_code=404,
@@ -89,8 +89,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         conn.close()
 
+        logging.info(f"Product {product_id} updated successfully")
         return func.HttpResponse(
-            json.dumps({"success": True, "product_id": int(product_id)}),
+            json.dumps({"success": True, "message": "Product updated successfully"}),
             status_code=200,
             mimetype="application/json",
         )

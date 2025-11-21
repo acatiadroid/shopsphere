@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import secrets
+from datetime import datetime
 
 import pyodbc
 
@@ -13,11 +14,8 @@ def get_db_connection():
     if not conn_str:
         raise ValueError("SqlConnectionString environment variable not set")
 
-    logging.info("Attempting database connection")
-
     try:
         conn = pyodbc.connect(conn_str)
-        logging.info("Database connection established")
         return conn
     except Exception as e:
         logging.error(f"Database connection failed: {str(e)}")
@@ -51,8 +49,6 @@ def verify_session(session_token):
         return None
 
     try:
-        from datetime import datetime
-
         conn = get_db_connection()
         cursor = conn.cursor()
 
@@ -61,7 +57,7 @@ def verify_session(session_token):
             SELECT u.id
             FROM sessions s
             JOIN shopusers u ON s.user_id = u.id
-            WHERE s.token = ? AND s.expires_at > ?
+            WHERE s.session_token = ? AND s.expires_at > ?
             """,
             (session_token, datetime.utcnow()),
         )

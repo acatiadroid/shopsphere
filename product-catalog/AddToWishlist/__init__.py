@@ -14,7 +14,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Add item to wishlist."""
     logging.info("Add to wishlist function triggered")
 
-    # Verify session
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
     user_id = verify_session(session_token)
 
@@ -47,7 +46,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Check if product exists
         cursor.execute("SELECT id, name FROM products WHERE id = ?", (product_id,))
         product = cursor.fetchone()
 
@@ -59,43 +57,38 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
-        # Check if already in wishlist
         cursor.execute(
             "SELECT id FROM wishlist WHERE user_id = ? AND product_id = ?",
             (user_id, product_id),
         )
-        existing = cursor.fetchone()
 
-        if existing:
+        if cursor.fetchone():
             conn.close()
             return func.HttpResponse(
-                json.dumps(
-                    {
-                        "success": True,
-                        "message": "Product already in wishlist",
-                        "wishlist_item_id": existing[0],
-                    }
-                ),
-                status_code=200,
+                json.dumps({"error": "Product already in wishlist"}),
+                status_code=400,
                 mimetype="application/json",
             )
 
-        # Add to wishlist
         cursor.execute(
             "INSERT INTO wishlist (user_id, product_id, added_at) VALUES (?, ?, ?)",
             (user_id, product_id, datetime.utcnow()),
         )
         conn.commit()
 
-        wishlist_item_id = cursor.execute("SELECT @@IDENTITY").fetchone()[0]
+        result = cursor.execute("SELECT @@IDENTITY").fetchone()
+        wishlist_id = int(result[0]) if result else 0
+
         conn.close()
 
+        logging.info(f"Product {product_id} added to wishlist for user {user_id}")
         return func.HttpResponse(
             json.dumps(
                 {
                     "success": True,
-                    "message": "Item added to wishlist",
-                    "wishlist_item_id": int(wishlist_item_id),
+                    "wishlist_id": int(wishlist_id),
+                    "product_id": product_id,
+                    "message": "Product added to wishlist",
                 }
             ),
             status_code=201,
@@ -104,9 +97,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     except Exception as e:
         logging.error(f"Add to wishlist error: {str(e)}")
-        import traceback
-
-        logging.error(traceback.format_exc())
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,
