@@ -26,18 +26,18 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         params = []
 
         if category:
-            query += " AND category = ?"
+            query += " AND category = %s"
             params.append(category)
 
         if search:
-            query += " AND (name LIKE ? OR description LIKE ?)"
+            query += " AND (name LIKE %s OR description LIKE %s)"
             search_term = f"%{search}%"
             params.extend([search_term, search_term])
 
-        query += " ORDER BY created_at DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
-        params.extend([int(offset), int(limit)])
+        query += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
+        params.extend([int(limit), int(offset)])
 
-        cursor.execute(query, params)
+        cursor.execute(query, tuple(params))
 
         products = []
         for row in cursor.fetchall():

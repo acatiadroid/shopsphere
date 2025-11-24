@@ -30,11 +30,11 @@ def format_datetime(date_string, format="%B %d, %Y at %I:%M %p"):
         return date_string[:10] if len(date_string) >= 10 else date_string
 
 
-USER_AUTH_URL = "https://user-auth-feh2gugugngnbxbp.norwayeast-01.azurewebsites.net/api"
+USER_AUTH_URL = "http://localhost:7071/api"
 PRODUCT_CATALOG_URL = (
-    "https://product-catalog-ffcjf2heceech3f6.norwayeast-01.azurewebsites.net/api"
+    "http://localhost:7072/api"
 )
-PAYMENT_URL = "https://payment-bxehasc6bshbdpd2.norwayeast-01.azurewebsites.net/api"
+PAYMENT_URL = "http://localhost:7073/api"
 
 CDN_BASE_URL = "https://shopsphere.blob.core.windows.net/cdn/"
 

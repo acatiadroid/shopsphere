@@ -1,2 +1,2 @@
 azure-functions
-pyodbc==5.0.1
+mysql-connector-python==8.2.0

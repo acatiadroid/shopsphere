@@ -2,18 +2,38 @@ import logging
 import os
 from datetime import datetime
 
-import pyodbc
+import mysql.connector
 
 
 def get_db_connection():
-    """Create database connection using pyodbc"""
+    """Create database connection using mysql.connector"""
     conn_str = os.environ.get("SqlConnectionString")
 
     if not conn_str:
         raise ValueError("SqlConnectionString environment variable not set")
 
     try:
-        conn = pyodbc.connect(conn_str)
+        # Parse the connection string (ODBC format to mysql.connector format)
+        # Expected format: SERVER=host;PORT=port;DATABASE=db;UID=user;PWD=password
+        params = {}
+        for part in conn_str.split(";"):
+            if "=" in part:
+                key, value = part.split("=", 1)
+                key = key.strip().upper()
+                value = value.strip()
+
+                if key == "SERVER":
+                    params["host"] = value
+                elif key == "PORT":
+                    params["port"] = int(value)
+                elif key == "DATABASE":
+                    params["database"] = value
+                elif key == "UID":
+                    params["user"] = value
+                elif key == "PWD":
+                    params["password"] = value
+
+        conn = mysql.connector.connect(**params)
         return conn
     except Exception as e:
         logging.error(f"Database connection failed: {str(e)}")
@@ -34,7 +54,7 @@ def verify_session(session_token):
             SELECT u.id
             FROM sessions s
             JOIN shopusers u ON s.user_id = u.id
-            WHERE s.session_token = ? AND s.expires_at > ?
+            WHERE s.session_token = %s AND s.expires_at > %s
             """,
             (session_token, datetime.utcnow()),
         )
@@ -61,7 +81,7 @@ def verify_admin(session_token):
             SELECT u.id, u.email
             FROM sessions s
             JOIN shopusers u ON s.user_id = u.id
-            WHERE s.session_token = ? AND s.expires_at > ?
+            WHERE s.session_token = %s AND s.expires_at > %s
             """,
             (session_token, datetime.utcnow()),
         )
