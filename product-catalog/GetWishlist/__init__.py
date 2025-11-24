@@ -32,7 +32,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT w.id, w.product_id, p.name, p.price, p.image_url, p.stock_quantity
             FROM wishlist w
             JOIN products p ON w.product_id = p.id
-            WHERE w.user_id = ?
+            WHERE w.user_id = %s
             """,
             (user_id,),
         )
@@ -52,6 +52,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

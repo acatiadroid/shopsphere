@@ -33,7 +33,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, order_id, amount, payment_method, status, transaction_id, created_at
             FROM transactions
-            WHERE id = ? AND user_id = ?
+            WHERE id = %s AND user_id = %s
             """,
             (transaction_id, user_id),
         )
@@ -41,6 +41,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         transaction = cursor.fetchone()
 
         if not transaction:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Transaction not found"}),
@@ -48,6 +49,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
+        cursor.close()
         conn.close()
 
         transaction_dict = {

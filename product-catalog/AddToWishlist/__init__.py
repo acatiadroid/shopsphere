@@ -46,10 +46,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id, name FROM products WHERE id = ?", (product_id,))
+        cursor.execute("SELECT id, name FROM products WHERE id = %s", (product_id,))
         product = cursor.fetchone()
 
         if not product:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Product not found"}),
@@ -58,11 +59,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         cursor.execute(
-            "SELECT id FROM wishlist WHERE user_id = ? AND product_id = ?",
+            "SELECT id FROM wishlist WHERE user_id = %s AND product_id = %s",
             (user_id, product_id),
         )
 
         if cursor.fetchone():
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Product already in wishlist"}),
@@ -71,14 +73,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         cursor.execute(
-            "INSERT INTO wishlist (user_id, product_id, added_at) VALUES (?, ?, ?)",
+            "INSERT INTO wishlist (user_id, product_id, added_at) VALUES (%s, %s, %s)",
             (user_id, product_id, datetime.utcnow()),
         )
         conn.commit()
 
-        result = cursor.execute("SELECT @@IDENTITY").fetchone()
-        wishlist_id = int(result[0]) if result else 0
+        wishlist_id = cursor.lastrowid
 
+        cursor.close()
         conn.close()
 
         logging.info(f"Product {product_id} added to wishlist for user {user_id}")

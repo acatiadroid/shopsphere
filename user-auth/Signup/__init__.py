@@ -49,8 +49,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id FROM shopusers WHERE email = ?", (email,))
+        cursor.execute("SELECT id FROM shopusers WHERE email = %s", (email,))
         if cursor.fetchone():
+            cursor.close()
             conn.close()
             logging.warning(f"Signup failed: User already exists for email {email}")
             return func.HttpResponse(
@@ -62,22 +63,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         password_hash, salt = hash_password(password)
 
         cursor.execute(
-            "INSERT INTO shopusers (email, password, salt, name, created_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO shopusers (email, password, salt, name, created_at) VALUES (%s, %s, %s, %s, %s)",
             (email, password_hash, salt, name, datetime.utcnow()),
         )
         conn.commit()
 
-        cursor.execute("SELECT @@IDENTITY AS id")
-        user_id = int(cursor.fetchone()[0])
+        user_id = cursor.lastrowid
 
         session_token = generate_session_token()
         expires_at = datetime.utcnow() + timedelta(days=7)
 
         cursor.execute(
-            "INSERT INTO sessions (user_id, session_token, expires_at) VALUES (?, ?, ?)",
+            "INSERT INTO sessions (user_id, session_token, expires_at) VALUES (%s, %s, %s)",
             (user_id, session_token, expires_at),
         )
         conn.commit()
+        cursor.close()
         conn.close()
 
         logging.info(f"Signup successful for user {user_id}")

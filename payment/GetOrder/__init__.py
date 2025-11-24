@@ -35,13 +35,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT id, total_amount, status, shipping_address, tracking_number,
                    created_at, paid_at, shipped_at, delivered_at
             FROM orders
-            WHERE id = ? AND user_id = ?
+            WHERE id = %s AND user_id = %s
             """,
             (order_id, user_id),
         )
         order = cursor.fetchone()
 
         if not order:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Order not found"}),
@@ -55,12 +56,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                    p.name, p.image_url
             FROM order_items oi
             LEFT JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id = ?
+            WHERE oi.order_id = %s
             """,
             (order_id,),
         )
         items = cursor.fetchall()
 
+        cursor.close()
         conn.close()
 
         order_dict = {

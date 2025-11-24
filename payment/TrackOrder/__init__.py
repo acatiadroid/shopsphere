@@ -33,7 +33,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, status, tracking_number, created_at, paid_at, shipped_at, delivered_at
             FROM orders
-            WHERE id = ? AND user_id = ?
+            WHERE id = %s AND user_id = %s
             """,
             (order_id, user_id),
         )
@@ -41,6 +41,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         order = cursor.fetchone()
 
         if not order:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Order not found"}),
@@ -48,6 +49,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
+        cursor.close()
         conn.close()
 
         tracking = {

@@ -1,5 +1,5 @@
 -- ================================================================
--- ShopSphere Complete Database Setup Script
+-- ShopSphere Complete Database Setup Script - MySQL Version
 -- ================================================================
 -- This script sets up all tables for the ShopSphere e-commerce platform
 -- including user authentication, product catalog, payments, and orders
@@ -7,15 +7,15 @@
 
 -- Drop existing tables if they exist (CASCADE for foreign keys)
 -- Order matters due to foreign key constraints
-IF OBJECT_ID('order_items', 'U') IS NOT NULL DROP TABLE order_items;
-IF OBJECT_ID('transactions', 'U') IS NOT NULL DROP TABLE transactions;
-IF OBJECT_ID('orders', 'U') IS NOT NULL DROP TABLE orders;
-IF OBJECT_ID('cart_items', 'U') IS NOT NULL DROP TABLE cart_items;
-IF OBJECT_ID('wishlist', 'U') IS NOT NULL DROP TABLE wishlist;
-IF OBJECT_ID('payment_methods', 'U') IS NOT NULL DROP TABLE payment_methods;
-IF OBJECT_ID('sessions', 'U') IS NOT NULL DROP TABLE sessions;
-IF OBJECT_ID('products', 'U') IS NOT NULL DROP TABLE products;
-IF OBJECT_ID('shopusers', 'U') IS NOT NULL DROP TABLE shopusers;
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS cart_items;
+DROP TABLE IF EXISTS wishlist;
+DROP TABLE IF EXISTS payment_methods;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS shopusers;
 
 -- ================================================================
 -- USER AUTHENTICATION TABLES
@@ -23,37 +23,37 @@ IF OBJECT_ID('shopusers', 'U') IS NOT NULL DROP TABLE shopusers;
 
 -- ShopUsers Table
 CREATE TABLE shopusers (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    email NVARCHAR(255) NOT NULL UNIQUE,
-    password NVARCHAR(500) NOT NULL,        -- Stores hashed password
-    salt NVARCHAR(100) NULL,                 -- Salt for password hashing
-    name NVARCHAR(255) NOT NULL,
-    is_admin BIT DEFAULT 0,                  -- Admin flag
-    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    updated_at DATETIME2 NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(500) NOT NULL,        -- Stores hashed password
+    salt VARCHAR(100) NULL,                 -- Salt for password hashing
+    name VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE,         -- Admin flag
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
 
     -- Indexes for performance
     INDEX IX_shopusers_email (email),
     INDEX IX_shopusers_is_admin (is_admin)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Sessions Table (for authentication tokens)
 CREATE TABLE sessions (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    token NVARCHAR(500) NOT NULL UNIQUE,
-    expires_at DATETIME2 NOT NULL,
-    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    session_token VARCHAR(500) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     -- Foreign key relationship
     CONSTRAINT FK_sessions_user_id FOREIGN KEY (user_id)
         REFERENCES shopusers(id) ON DELETE CASCADE,
 
     -- Indexes for performance
-    INDEX IX_sessions_token (token),
+    INDEX IX_sessions_session_token (session_token),
     INDEX IX_sessions_user_id (user_id),
     INDEX IX_sessions_expires_at (expires_at)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
 -- PAYMENT METHODS TABLE
@@ -61,17 +61,17 @@ CREATE TABLE sessions (
 
 -- Payment Methods Table (saved payment methods for users)
 CREATE TABLE payment_methods (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    payment_type NVARCHAR(50) NOT NULL,  -- credit_card, debit_card, paypal, apple_pay, google_pay
-    card_last_four NVARCHAR(4) NULL,     -- Last 4 digits of card (for display)
-    card_brand NVARCHAR(50) NULL,        -- Visa, Mastercard, Amex, etc.
-    cardholder_name NVARCHAR(255) NULL,
+    payment_type VARCHAR(50) NOT NULL,  -- credit_card, debit_card, paypal, apple_pay, google_pay
+    card_last_four VARCHAR(4) NULL,     -- Last 4 digits of card (for display)
+    card_brand VARCHAR(50) NULL,        -- Visa, Mastercard, Amex, etc.
+    cardholder_name VARCHAR(255) NULL,
     expiry_month INT NULL,
     expiry_year INT NULL,
-    is_default BIT DEFAULT 0,            -- Default payment method
-    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    updated_at DATETIME2 NULL,
+    is_default BOOLEAN DEFAULT FALSE,   -- Default payment method
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
 
     -- Foreign keys
     CONSTRAINT FK_payment_methods_user_id FOREIGN KEY (user_id)
@@ -85,7 +85,7 @@ CREATE TABLE payment_methods (
     -- Indexes
     INDEX IX_payment_methods_user_id (user_id),
     INDEX IX_payment_methods_is_default (is_default)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
 -- PRODUCT CATALOG TABLES
@@ -93,15 +93,15 @@ CREATE TABLE payment_methods (
 
 -- Products Table
 CREATE TABLE products (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(255) NOT NULL,
-    description NVARCHAR(MAX) NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
     price DECIMAL(10, 2) NOT NULL,
     stock_quantity INT NOT NULL DEFAULT 0,
-    category NVARCHAR(100) NOT NULL,
-    image_url NVARCHAR(500) NULL,
-    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    updated_at DATETIME2 NULL,
+    category VARCHAR(100) NOT NULL,
+    image_url VARCHAR(500) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
 
     -- Constraints
     CONSTRAINT CHK_products_price CHECK (price >= 0),
@@ -111,7 +111,7 @@ CREATE TABLE products (
     INDEX IX_products_category (category),
     INDEX IX_products_name (name),
     INDEX IX_products_created_at (created_at)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
 -- SHOPPING CART & WISHLIST TABLES
@@ -119,11 +119,11 @@ CREATE TABLE products (
 
 -- Cart Items Table (temporary shopping cart)
 CREATE TABLE cart_items (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     product_id INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
-    added_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     -- Foreign keys
     CONSTRAINT FK_cart_items_user_id FOREIGN KEY (user_id)
@@ -140,14 +140,14 @@ CREATE TABLE cart_items (
     -- Indexes
     INDEX IX_cart_items_user_id (user_id),
     INDEX IX_cart_items_product_id (product_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Wishlist Table
 CREATE TABLE wishlist (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     product_id INT NOT NULL,
-    added_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     -- Foreign keys
     CONSTRAINT FK_wishlist_user_id FOREIGN KEY (user_id)
@@ -161,7 +161,7 @@ CREATE TABLE wishlist (
     -- Indexes
     INDEX IX_wishlist_user_id (user_id),
     INDEX IX_wishlist_product_id (product_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
 -- ORDER MANAGEMENT TABLES
@@ -169,20 +169,20 @@ CREATE TABLE wishlist (
 
 -- Orders Table
 CREATE TABLE orders (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     total_amount DECIMAL(10, 2) NOT NULL,
-    status NVARCHAR(50) NOT NULL DEFAULT 'pending',  -- pending, paid, processing, shipped, delivered, cancelled
-    shipping_address NVARCHAR(MAX) NULL,
-    tracking_number NVARCHAR(100) NULL,
-    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    paid_at DATETIME2 NULL,
-    shipped_at DATETIME2 NULL,
-    delivered_at DATETIME2 NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',  -- pending, paid, processing, shipped, delivered, cancelled
+    shipping_address TEXT NULL,
+    tracking_number VARCHAR(100) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    paid_at DATETIME NULL,
+    shipped_at DATETIME NULL,
+    delivered_at DATETIME NULL,
 
     -- Foreign keys
     CONSTRAINT FK_orders_user_id FOREIGN KEY (user_id)
-        REFERENCES shopusers(id) ON DELETE NO ACTION,
+        REFERENCES shopusers(id) ON DELETE RESTRICT,
 
     -- Constraints
     CONSTRAINT CHK_orders_total_amount CHECK (total_amount >= 0),
@@ -193,11 +193,11 @@ CREATE TABLE orders (
     INDEX IX_orders_status (status),
     INDEX IX_orders_created_at (created_at),
     INDEX IX_orders_tracking_number (tracking_number)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Order Items Table (products in each order)
 CREATE TABLE order_items (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     product_id INT NOT NULL,
     quantity INT NOT NULL,
@@ -207,7 +207,7 @@ CREATE TABLE order_items (
     CONSTRAINT FK_order_items_order_id FOREIGN KEY (order_id)
         REFERENCES orders(id) ON DELETE CASCADE,
     CONSTRAINT FK_order_items_product_id FOREIGN KEY (product_id)
-        REFERENCES products(id) ON DELETE NO ACTION,
+        REFERENCES products(id) ON DELETE RESTRICT,
 
     -- Constraints
     CONSTRAINT CHK_order_items_quantity CHECK (quantity > 0),
@@ -216,7 +216,7 @@ CREATE TABLE order_items (
     -- Indexes
     INDEX IX_order_items_order_id (order_id),
     INDEX IX_order_items_product_id (product_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
 -- PAYMENT TABLES
@@ -224,20 +224,20 @@ CREATE TABLE order_items (
 
 -- Transactions Table (payment records)
 CREATE TABLE transactions (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     user_id INT NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
-    payment_method NVARCHAR(50) NOT NULL,  -- credit_card, debit_card, paypal, apple_pay, google_pay
-    status NVARCHAR(50) NOT NULL,          -- completed, failed, pending, refunded
-    transaction_id NVARCHAR(100) NOT NULL UNIQUE,  -- External transaction reference
-    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    payment_method VARCHAR(50) NOT NULL,  -- credit_card, debit_card, paypal, apple_pay, google_pay
+    status VARCHAR(50) NOT NULL,          -- completed, failed, pending, refunded
+    transaction_id VARCHAR(100) NOT NULL UNIQUE,  -- External transaction reference
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     -- Foreign keys
     CONSTRAINT FK_transactions_order_id FOREIGN KEY (order_id)
-        REFERENCES orders(id) ON DELETE NO ACTION,
+        REFERENCES orders(id) ON DELETE RESTRICT,
     CONSTRAINT FK_transactions_user_id FOREIGN KEY (user_id)
-        REFERENCES shopusers(id) ON DELETE NO ACTION,
+        REFERENCES shopusers(id) ON DELETE RESTRICT,
 
     -- Constraints
     CONSTRAINT CHK_transactions_amount CHECK (amount >= 0),
@@ -250,7 +250,7 @@ CREATE TABLE transactions (
     INDEX IX_transactions_transaction_id (transaction_id),
     INDEX IX_transactions_status (status),
     INDEX IX_transactions_created_at (created_at)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
 -- SEED DATA (Optional - for testing)
@@ -296,16 +296,16 @@ SELECT 'transactions', COUNT(*) FROM transactions;
 
 -- Show table information
 SELECT
-    t.name AS TableName,
-    c.name AS ColumnName,
-    ty.name AS DataType,
-    c.max_length AS MaxLength,
-    c.is_nullable AS IsNullable
-FROM sys.tables t
-INNER JOIN sys.columns c ON t.object_id = c.object_id
-INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
-WHERE t.name IN ('shopusers', 'sessions', 'payment_methods', 'products', 'cart_items', 'wishlist', 'orders', 'order_items', 'transactions')
-ORDER BY t.name, c.column_id;
+    t.TABLE_NAME AS TableName,
+    c.COLUMN_NAME AS ColumnName,
+    c.DATA_TYPE AS DataType,
+    c.CHARACTER_MAXIMUM_LENGTH AS MaxLength,
+    c.IS_NULLABLE AS IsNullable
+FROM information_schema.TABLES t
+INNER JOIN information_schema.COLUMNS c ON t.TABLE_NAME = c.TABLE_NAME
+WHERE t.TABLE_SCHEMA = DATABASE()
+  AND t.TABLE_NAME IN ('shopusers', 'sessions', 'payment_methods', 'products', 'cart_items', 'wishlist', 'orders', 'order_items', 'transactions')
+ORDER BY t.TABLE_NAME, c.ORDINAL_POSITION;
 
 -- ================================================================
 -- NOTES
@@ -314,7 +314,17 @@ ORDER BY t.name, c.column_id;
 -- 2. Session tokens should be generated using secure random token generation
 -- 3. Transaction IDs should be unique and follow format: TXN-XXXXXXXXXXXXXXXX
 -- 4. Image URLs should point to Azure Blob Storage CDN
--- 5. Remember to set up proper firewall rules for Azure SQL
+-- 5. Remember to set up proper user permissions and firewall rules for MySQL
 -- 6. Consider implementing indexes based on actual query patterns
--- 7. Set up automated cleanup for expired sessions
+-- 7. Set up automated cleanup for expired sessions using MySQL Events
+-- 8. MySQL specific changes from SQL Server:
+--    - IDENTITY(1,1) → AUTO_INCREMENT
+--    - NVARCHAR → VARCHAR with utf8mb4 charset
+--    - NVARCHAR(MAX) → TEXT
+--    - BIT → BOOLEAN
+--    - DATETIME2 → DATETIME
+--    - GETUTCDATE() → CURRENT_TIMESTAMP
+--    - ON DELETE NO ACTION → ON DELETE RESTRICT
+--    - Added ENGINE=InnoDB for transaction support
+--    - Added utf8mb4_unicode_ci collation for proper Unicode support
 -- ================================================================

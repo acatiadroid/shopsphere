@@ -66,6 +66,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             params.append(req_body["image_url"])
 
         if not update_fields:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "No fields to update"}),
@@ -80,6 +81,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn.commit()
 
         if cursor.rowcount == 0:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Product not found"}),
@@ -87,6 +89,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
+        cursor.close()
         conn.close()
 
         logging.info(f"Product {product_id} updated successfully")

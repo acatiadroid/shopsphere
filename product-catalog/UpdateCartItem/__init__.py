@@ -49,12 +49,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT product_id FROM cart_items WHERE id = ? AND user_id = ?",
+            "SELECT product_id FROM cart_items WHERE id = %s AND user_id = %s",
             (cart_item_id, user_id),
         )
         cart_item = cursor.fetchone()
 
         if not cart_item:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Cart item not found"}),
@@ -65,11 +66,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         product_id = cart_item[0]
 
         cursor.execute(
-            "SELECT stock_quantity FROM products WHERE id = ?", (product_id,)
+            "SELECT stock_quantity FROM products WHERE id = %s", (product_id,)
         )
         product = cursor.fetchone()
 
         if not product or product[0] < quantity:
+            cursor.close()
             conn.close()
             available = product[0] if product else 0
             return func.HttpResponse(
@@ -79,10 +81,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         cursor.execute(
-            "UPDATE cart_items SET quantity = ? WHERE id = ?",
+            "UPDATE cart_items SET quantity = %s WHERE id = %s",
             (quantity, cart_item_id),
         )
         conn.commit()
+        cursor.close()
         conn.close()
 
         logging.info(f"Cart item {cart_item_id} updated to quantity {quantity}")

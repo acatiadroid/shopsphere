@@ -54,6 +54,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

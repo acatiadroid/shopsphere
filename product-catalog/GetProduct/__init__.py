@@ -20,7 +20,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, name, description, price, stock_quantity, category, image_url, created_at FROM products WHERE id = ?",
+            "SELECT id, name, description, price, stock_quantity, category, image_url, created_at FROM products WHERE id = %s",
             (product_id,),
         )
 
@@ -44,6 +44,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             "created_at": row[7].isoformat() if row[7] else None,
         }
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

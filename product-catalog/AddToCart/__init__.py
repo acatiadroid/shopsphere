@@ -55,12 +55,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, name, stock_quantity FROM products WHERE id = ?",
+            "SELECT id, name, stock_quantity FROM products WHERE id = %s",
             (product_id,),
         )
         product = cursor.fetchone()
 
         if not product:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Product not found"}),
@@ -69,6 +70,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         if product[2] < quantity:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": f"Not enough stock. Available: {product[2]}"}),
@@ -77,7 +79,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         cursor.execute(
-            "SELECT id, quantity FROM cart_items WHERE user_id = ? AND product_id = ?",
+            "SELECT id, quantity FROM cart_items WHERE user_id = %s AND product_id = %s",
             (user_id, product_id),
         )
         existing = cursor.fetchone()
@@ -85,6 +87,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         if existing:
             new_quantity = existing[1] + quantity
             if new_quantity > product[2]:
+                cursor.close()
                 conn.close()
                 return func.HttpResponse(
                     json.dumps({"error": f"Not enough stock. Available: {product[2]}"}),
@@ -93,10 +96,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 )
 
             cursor.execute(
-                "UPDATE cart_items SET quantity = ? WHERE id = ?",
+                "UPDATE cart_items SET quantity = %s WHERE id = %s",
                 (new_quantity, existing[0]),
             )
             conn.commit()
+            cursor.close()
             conn.close()
 
             return func.HttpResponse(
@@ -113,12 +117,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
         else:
             cursor.execute(
-                "INSERT INTO cart_items (user_id, product_id, quantity, added_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO cart_items (user_id, product_id, quantity, added_at) VALUES (%s, %s, %s, %s)",
                 (user_id, product_id, quantity, datetime.utcnow()),
             )
             conn.commit()
 
-            cart_item_id = cursor.execute("SELECT @@IDENTITY").fetchone()[0]
+            cart_item_id = cursor.lastrowid
+            cursor.close()
             conn.close()
 
             return func.HttpResponse(

@@ -32,7 +32,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT id, total_amount, status, shipping_address, tracking_number,
                    created_at, paid_at, shipped_at, delivered_at
             FROM orders
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY created_at DESC
             """,
             (user_id,),
@@ -54,6 +54,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

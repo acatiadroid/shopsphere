@@ -68,12 +68,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, total_amount, status FROM orders WHERE id = ? AND user_id = ?",
+            "SELECT id, total_amount, status FROM orders WHERE id = %s AND user_id = %s",
             (order_id, user_id),
         )
         order = cursor.fetchone()
 
         if not order:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Order not found"}),
@@ -105,7 +106,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             cursor.execute(
                 """
                 INSERT INTO transactions (order_id, user_id, amount, payment_method, status, transaction_id, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     order_id,
@@ -118,6 +119,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 ),
             )
             conn.commit()
+            cursor.close()
             conn.close()
 
             return func.HttpResponse(
@@ -135,7 +137,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor.execute(
             """
             INSERT INTO transactions (order_id, user_id, amount, payment_method, status, transaction_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 order_id,
@@ -149,11 +151,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
         cursor.execute(
-            "UPDATE orders SET status = ?, paid_at = ? WHERE id = ?",
+            "UPDATE orders SET status = %s, paid_at = %s WHERE id = %s",
             ("paid", datetime.utcnow(), order_id),
         )
 
         conn.commit()
+        cursor.close()
         conn.close()
 
         logging.info(f"Payment processed successfully for order {order_id}")

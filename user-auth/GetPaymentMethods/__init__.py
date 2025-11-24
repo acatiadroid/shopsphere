@@ -32,7 +32,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT id, payment_type, card_last_four, card_brand, cardholder_name,
                    expiry_month, expiry_year, is_default, created_at
             FROM payment_methods
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY is_default DESC, created_at DESC
             """,
             (user_id,),
@@ -54,6 +54,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

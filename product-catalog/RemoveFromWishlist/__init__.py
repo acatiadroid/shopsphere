@@ -30,12 +30,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "DELETE FROM wishlist WHERE id = ? AND user_id = ?",
+            "DELETE FROM wishlist WHERE id = %s AND user_id = %s",
             (wishlist_item_id, user_id),
         )
         conn.commit()
 
         if cursor.rowcount == 0:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Wishlist item not found"}),
@@ -43,6 +44,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

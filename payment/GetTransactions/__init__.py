@@ -31,7 +31,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             """
             SELECT id, order_id, amount, payment_method, status, transaction_id, created_at
             FROM transactions
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY created_at DESC
             """,
             (user_id,),
@@ -51,6 +51,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

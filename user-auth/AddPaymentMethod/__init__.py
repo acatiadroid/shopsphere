@@ -122,7 +122,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if is_default:
             cursor.execute(
-                "UPDATE payment_methods SET is_default = 0 WHERE user_id = ?",
+                "UPDATE payment_methods SET is_default = 0 WHERE user_id = %s",
                 (user_id,),
             )
 
@@ -132,7 +132,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 user_id, payment_type, card_last_four, card_brand, cardholder_name,
                 expiry_month, expiry_year, is_default, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -149,9 +149,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         conn.commit()
 
-        result = cursor.execute("SELECT @@IDENTITY").fetchone()
-        payment_method_id = int(result[0]) if result else 0
+        payment_method_id = cursor.lastrowid
 
+        cursor.close()
         conn.close()
 
         logging.info(f"Payment method added for user {user_id}")

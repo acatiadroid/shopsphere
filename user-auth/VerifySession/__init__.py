@@ -41,13 +41,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT u.id, u.email, u.name, s.expires_at
             FROM sessions s
             JOIN shopusers u ON s.user_id = u.id
-            WHERE s.session_token = ?
+            WHERE s.session_token = %s
             """,
             (session_token,),
         )
         result = cursor.fetchone()
 
         if not result:
+            cursor.close()
             conn.close()
             logging.warning("Invalid session token")
             return func.HttpResponse(
@@ -61,9 +62,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if expires_at < datetime.utcnow():
             cursor.execute(
-                "DELETE FROM sessions WHERE session_token = ?", (session_token,)
+                "DELETE FROM sessions WHERE session_token = %s", (session_token,)
             )
             conn.commit()
+            cursor.close()
             conn.close()
             logging.warning(f"Session expired for user {email}")
             return func.HttpResponse(
@@ -72,6 +74,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
+        cursor.close()
         conn.close()
 
         logging.info(f"Session verified for user {user_id}")

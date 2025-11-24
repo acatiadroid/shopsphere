@@ -29,7 +29,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        cursor.execute("DELETE FROM products WHERE id = %s", (product_id,))
         conn.commit()
 
         if cursor.rowcount == 0:
@@ -39,6 +39,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json",
             )
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

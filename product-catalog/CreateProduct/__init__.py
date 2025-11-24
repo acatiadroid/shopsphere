@@ -76,7 +76,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor.execute(
             """
             INSERT INTO products (name, description, price, stock_quantity, category, image_url, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 name,
@@ -90,9 +90,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
         conn.commit()
 
-        result = cursor.execute("SELECT @@IDENTITY").fetchone()
-        product_id = int(result[0]) if result else 0
+        product_id = cursor.lastrowid
 
+        cursor.close()
         conn.close()
 
         price_value = float(price) if isinstance(price, Decimal) else price

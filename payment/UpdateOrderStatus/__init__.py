@@ -54,10 +54,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id, status FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("SELECT id, status FROM orders WHERE id = %s", (order_id,))
         order = cursor.fetchone()
 
         if not order:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Order not found"}),
@@ -85,6 +86,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             params.append(tracking_number)
 
         if not update_fields:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "No fields to update"}),
@@ -97,6 +99,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         cursor.execute(query, tuple(params))
         conn.commit()
+        cursor.close()
         conn.close()
 
         logging.info(f"Order {order_id} updated successfully")

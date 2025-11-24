@@ -38,8 +38,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM sessions WHERE session_token = ?", (session_token,))
+        cursor.execute("DELETE FROM sessions WHERE session_token = %s", (session_token,))
         conn.commit()
+        cursor.close()
         conn.close()
 
         logging.info("Session deleted successfully")

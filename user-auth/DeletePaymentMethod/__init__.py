@@ -37,11 +37,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id FROM payment_methods WHERE id = ? AND user_id = ?",
+            "SELECT id FROM payment_methods WHERE id = %s AND user_id = %s",
             (payment_method_id, user_id),
         )
 
         if not cursor.fetchone():
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Payment method not found"}),
@@ -50,11 +51,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         cursor.execute(
-            "DELETE FROM payment_methods WHERE id = ? AND user_id = ?",
+            "DELETE FROM payment_methods WHERE id = %s AND user_id = %s",
             (payment_method_id, user_id),
         )
 
         conn.commit()
+        cursor.close()
         conn.close()
 
         logging.info(f"Payment method {payment_method_id} deleted for user {user_id}")

@@ -51,13 +51,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT c.product_id, c.quantity, p.price, p.stock_quantity, p.name
             FROM cart_items c
             JOIN products p ON c.product_id = p.id
-            WHERE c.user_id = ?
+            WHERE c.user_id = %s
             """,
             (user_id,),
         )
         cart_items = cursor.fetchall()
 
         if not cart_items:
+            cursor.close()
             conn.close()
             return func.HttpResponse(
                 json.dumps({"error": "Cart is empty"}),
@@ -70,6 +71,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         for item in cart_items:
             product_id, quantity, price, stock, name = item
             if stock < quantity:
+                cursor.close()
                 conn.close()
                 return func.HttpResponse(
                     json.dumps(
@@ -91,31 +93,32 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor.execute(
             """
             INSERT INTO orders (user_id, total_amount, status, shipping_address, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (user_id, total_amount, "pending", shipping_address, datetime.utcnow()),
         )
         conn.commit()
 
-        order_id = cursor.execute("SELECT @@IDENTITY").fetchone()[0]
+        order_id = cursor.lastrowid
 
         for item in order_items:
             cursor.execute(
                 """
                 INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (order_id, item["product_id"], item["quantity"], item["price"]),
             )
 
             cursor.execute(
-                "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?",
+                "UPDATE products SET stock_quantity = stock_quantity - %s WHERE id = %s",
                 (item["quantity"], item["product_id"]),
             )
 
-        cursor.execute("DELETE FROM cart_items WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM cart_items WHERE user_id = %s", (user_id,))
 
         conn.commit()
+        cursor.close()
         conn.close()
 
         logging.info(f"Order {order_id} created for user {user_id}")

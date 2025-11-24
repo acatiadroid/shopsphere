@@ -32,7 +32,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             SELECT c.id, c.product_id, c.quantity, p.name, p.price, p.image_url, p.stock_quantity
             FROM cart_items c
             JOIN products p ON c.product_id = p.id
-            WHERE c.user_id = ?
+            WHERE c.user_id = %s
             """,
             (user_id,),
         )
@@ -57,6 +57,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
             total += item_total
 
+        cursor.close()
         conn.close()
 
         return func.HttpResponse(

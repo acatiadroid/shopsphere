@@ -53,13 +53,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, name, email, password, salt FROM shopusers WHERE email = ?",
+            "SELECT id, name, email, password, salt FROM shopusers WHERE email = %s",
             (email,),
         )
 
         user = cursor.fetchone()
 
         if not user:
+            cursor.close()
             conn.close()
             logging.warning(f"Login failed: User not found for email {email}")
             return func.HttpResponse(
@@ -73,6 +74,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if salt:
             if not verify_password(password, password_hash, salt):
+                cursor.close()
                 conn.close()
                 logging.warning(f"Login failed: Invalid password for {email}")
                 return func.HttpResponse(
@@ -85,10 +87,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         expires_at = datetime.utcnow() + timedelta(days=7)
 
         cursor.execute(
-            "INSERT INTO sessions (user_id, session_token, expires_at) VALUES (?, ?, ?)",
+            "INSERT INTO sessions (user_id, session_token, expires_at) VALUES (%s, %s, %s)",
             (user_id, session_token, expires_at),
         )
         conn.commit()
+        cursor.close()
         conn.close()
 
         user_data = {
