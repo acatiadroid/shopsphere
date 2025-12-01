@@ -30,13 +30,14 @@ def format_datetime(date_string, format="%B %d, %Y at %I:%M %p"):
         return date_string[:10] if len(date_string) >= 10 else date_string
 
 
-USER_AUTH_URL = "https://user-auth-feh2gugugngnbxbp.norwayeast-01.azurewebsites.net/api"
+USER_AUTH_URL = "https://shopsphere-user-auth-bgeqgtg5g7f3eba3.ukwest-01.azurewebsites.net/api"
 PRODUCT_CATALOG_URL = (
-    "https://product-catalog-ffcjf2heceech3f6.norwayeast-01.azurewebsites.net/api"
+    "https://shopsphere-product-catalog-hmhxe7dzfkddhtbb.ukwest-01.azurewebsites.net/api"
 )
-PAYMENT_URL = "https://payment-bxehasc6bshbdpd2.norwayeast-01.azurewebsites.net/api"
+PAYMENT_URL = "https://shopsphere-payment-esfwgag4fmfeg9eb.ukwest-01.azurewebsites.net/api"
 
-CDN_BASE_URL = "https://shopsphere.blob.core.windows.net/cdn/"
+
+CDN_BASE_URL = "https://shopspherecdn.blob.core.windows.net/cdn/"
 
 
 def get_auth_headers():
