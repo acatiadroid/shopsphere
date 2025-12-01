@@ -11,7 +11,7 @@ from shared.db_utils import get_db_connection, verify_session
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    """Update cart item quantity"""
+    """Update cart item quantity."""
     logging.info("Update cart item function triggered")
 
     cart_item_id = req.route_params.get("id")

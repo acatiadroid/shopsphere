@@ -10,7 +10,7 @@ from shared.db_utils import get_db_connection, verify_session
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    """Delete a payment method"""
+    """Delete a payment method."""
     logging.info("DeletePaymentMethod function triggered")
 
     session_token = req.headers.get("Authorization", "").replace("Bearer ", "")
