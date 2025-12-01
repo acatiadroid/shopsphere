@@ -41,7 +41,7 @@ CREATE TABLE shopusers (
 CREATE TABLE sessions (
     id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
-    token NVARCHAR(500) NOT NULL UNIQUE,
+    session_token NVARCHAR(500) NOT NULL UNIQUE,
     expires_at DATETIME2 NOT NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
 
@@ -50,7 +50,7 @@ CREATE TABLE sessions (
         REFERENCES shopusers(id) ON DELETE CASCADE,
 
     -- Indexes for performance
-    INDEX IX_sessions_token (token),
+    INDEX IX_sessions_session_token (session_token),
     INDEX IX_sessions_user_id (user_id),
     INDEX IX_sessions_expires_at (expires_at)
 );
@@ -251,6 +251,7 @@ CREATE TABLE transactions (
     INDEX IX_transactions_status (status),
     INDEX IX_transactions_created_at (created_at)
 );
+
 
 -- ================================================================
 -- SEED DATA (Optional - for testing)
