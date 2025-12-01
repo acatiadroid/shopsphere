@@ -5,7 +5,7 @@ import uuid
 
 from azure.storage.blob import BlobServiceClient, ContentSettings
 
-STORAGE_ACCOUNT = "shopsphere"
+STORAGE_ACCOUNT = "shopspherecdn"
 CONTAINER_NAME = "cdn"
 CDN_BASE_URL = f"https://{STORAGE_ACCOUNT}.blob.core.windows.net/{CONTAINER_NAME}"
 
