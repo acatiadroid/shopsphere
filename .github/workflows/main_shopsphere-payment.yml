@@ -69,7 +69,8 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: |
-          unzip release.zip
+          mkdir -p payment
+          unzip -d payment release.zip
           rm release.zip
         
       - name: Login to Azure
