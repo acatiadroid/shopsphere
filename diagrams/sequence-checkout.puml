@@ -1,0 +1,97 @@
+@startuml ShopSphere Checkout and Payment Processing
+title Checkout & Payment Workflow
+
+actor User
+participant "Web Browser" as Browser
+participant "Flask App\n(webapp)" as WebApp
+participant "Checkout Function\n(payment)" as CheckoutFunc
+participant "ProcessPayment\n(payment)" as PaymentFunc
+database "Azure SQL\nDatabase" as DB
+
+User -> Browser: Navigate to /cart
+Browser -> WebApp: GET /cart
+WebApp -> WebApp: Verify session
+WebApp -> Browser: Display cart with\n"Proceed to Checkout" button
+
+User -> Browser: Click "Checkout"
+Browser -> WebApp: GET /checkout
+
+WebApp -> CheckoutFunc: GET /api/checkout\n{session_token}
+activate CheckoutFunc
+
+CheckoutFunc -> DB: SELECT ci.*, p.* FROM cart_items ci\nJOIN products p ON ci.product_id = p.id\nWHERE ci.user_id = ?
+activate DB
+DB --> CheckoutFunc: Cart items with product details
+deactivate DB
+
+CheckoutFunc -> CheckoutFunc: Calculate total amount\nValidate stock availability
+
+CheckoutFunc --> WebApp: 200 OK\n{items, total, available_payment_methods}
+deactivate CheckoutFunc
+
+WebApp -> Browser: Render checkout.html\n(order summary, payment form)
+
+User -> Browser: Enter payment details\n(payment method, shipping address)
+Browser -> WebApp: POST /checkout\n{payment_method_id, shipping_address}
+
+WebApp -> PaymentFunc: POST /api/process-payment\n{user_id, payment_method_id, shipping_address}
+activate PaymentFunc
+
+' Start Transaction
+PaymentFunc -> DB: BEGIN TRANSACTION
+activate DB
+
+PaymentFunc -> DB: SELECT * FROM cart_items\nWHERE user_id = ? FOR UPDATE
+DB --> PaymentFunc: Locked cart items
+
+PaymentFunc -> DB: SELECT * FROM products\nWHERE id IN (...) FOR UPDATE
+DB --> PaymentFunc: Locked product records
+
+PaymentFunc -> PaymentFunc: Validate stock levels\nCalculate final total
+
+alt Stock Available
+    PaymentFunc -> PaymentFunc: Generate tracking_number\n(uuid4)
+    
+    PaymentFunc -> DB: INSERT INTO orders\n(user_id, total_amount, status,\nshipping_address, tracking_number)
+    DB --> PaymentFunc: order_id
+    
+    loop For each cart item
+        PaymentFunc -> DB: INSERT INTO order_items\n(order_id, product_id, quantity, price_at_purchase)
+        DB --> PaymentFunc: order_item created
+        
+        PaymentFunc -> DB: UPDATE products\nSET stock_quantity = stock_quantity - ?\nWHERE id = ?
+        DB --> PaymentFunc: Stock updated
+    end
+    
+    PaymentFunc -> PaymentFunc: Simulate payment processing\n(Virtual payment system)
+    
+    PaymentFunc -> DB: INSERT INTO transactions\n(order_id, user_id, amount,\npayment_method, status, transaction_id)
+    DB --> PaymentFunc: Transaction recorded
+    
+    PaymentFunc -> DB: UPDATE orders\nSET status = 'paid', paid_at = GETUTCDATE()\nWHERE id = ?
+    DB --> PaymentFunc: Order updated
+    
+    PaymentFunc -> DB: DELETE FROM cart_items\nWHERE user_id = ?
+    DB --> PaymentFunc: Cart cleared
+    
+    PaymentFunc -> DB: COMMIT TRANSACTION
+    deactivate DB
+    
+    PaymentFunc --> WebApp: 200 OK\n{order_id, tracking_number, status}
+    deactivate PaymentFunc
+    
+    WebApp -> Browser: Redirect to /order/<order_id>\n(Order confirmation page)
+    Browser -> User: Display order confirmation\n& tracking number
+    
+else Insufficient Stock
+    PaymentFunc -> DB: ROLLBACK TRANSACTION
+    deactivate DB
+    
+    PaymentFunc --> WebApp: 400 Bad Request\n{error: "Insufficient stock"}
+    deactivate PaymentFunc
+    
+    WebApp -> Browser: Display error message
+    Browser -> User: Show stock error
+end
+
+@enduml

@@ -12,12 +12,12 @@ methods and validating transactions in a safe environment.
 
 in ./payment and ./user-auth and ./product-catalog will be azure functions to handle payment and user auth
 
-the payment function is at payment-bxehasc6bshbdpd2.norwayeast-01.azurewebsites.net
-the user-auth function is at user-auth-feh2gugugngnbxbp.norwayeast-01.azurewebsites.net
-product-catalog is at product-catalog-ffcjf2heceech3f6.norwayeast-01.azurewebsites.net
+PRODUCT_CATALOG_URL=https://shopsphere-product-catalog-hmhxe7dzfkddhtbb.ukwest-01.azurewebsites.net/api
+PAYMENT_URL=https://shopsphere-payment-esfwgag4fmfeg9eb.ukwest-01.azurewebsites.net/api
+USER_AUTH_URL=https://shopsphere-user-auth-bgeqgtg5g7f3eba3.ukwest-01.azurewebsites.net/api
 
 keep the app relatively simple. don't add unnecessary things. focus on the core features listed above.
 
-database is at luke-shopsphere.database.windows.net
+database is at shopsphere.database.windows.net
 
 image cdn is at https://shopsphere.blob.core.windows.net/cdn/<file>

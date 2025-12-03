@@ -1,0 +1,68 @@
+    @startuml ShopSphere Component Diagram
+    !define AZURE_PUML https://raw.githubusercontent.com/plantuml-stdlib/Azure-PlantUML/release/2-1/dist
+    !include AZURE_PUML/AzureCommon.puml
+    !include AZURE_PUML/Web/AzureWebApp.puml
+    !include AZURE_PUML/Databases/AzureSqlDatabase.puml
+    !include AZURE_PUML/Compute/AzureFunction.puml
+    !include AZURE_PUML/Storage/AzureBlobStorage.puml
+
+    title Component Diagram
+
+    skinparam componentStyle rectangle
+    skinparam defaultFontSize 11
+    left to right direction
+
+    actor User as user
+
+    package "Client Layer" {
+        component "Web Browser" as browser
+    }
+
+    package "Presentation Layer" {
+        AzureWebApp(webapp, "Flask Web App", "Python 3.13")
+    }
+
+    package "Business Logic Layer" {
+        AzureFunction(userAuth, "User Auth", "Python 3.12") {
+            component "7 endpoints" as authEndpoints
+        }
+        
+        AzureFunction(productCatalog, "Product Catalog", "Python 3.12") {
+            component "13 endpoints" as catalogEndpoints
+        }
+        
+        AzureFunction(payment, "Payment", "Python 3.12") {
+            component "8 endpoints" as paymentEndpoints
+        }
+    }
+
+    package "Data Access" {
+        component "DB Utils" as dbUtils
+        component "Blob Utils" as blobUtils
+    }
+
+    package "Data Layer" {
+        AzureSqlDatabase(sqldb, "SQL Database", "9 Tables")
+        AzureBlobStorage(blobStorage, "Blob Storage", "Images")
+    }
+
+    ' User interactions
+    user -right-> browser
+    browser -right-> webapp : HTTPS
+
+    ' Web App to Functions
+    webapp -down-> userAuth : API
+    webapp -down-> productCatalog : API
+    webapp -down-> payment : API
+
+    ' Functions to Data Access
+    userAuth -down-> dbUtils
+    productCatalog -down-> dbUtils
+    productCatalog -down-> blobUtils
+    payment -down-> dbUtils
+
+    ' Data Access to Storage
+    dbUtils -down-> sqldb
+    blobUtils -down-> blobStorage
+
+    @enduml

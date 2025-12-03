@@ -1,0 +1,49 @@
+@startuml ShopSphere Login Sequence
+title User Login Workflow
+
+actor User
+participant "Web Browser" as Browser
+participant "Flask App\n(webapp)" as WebApp
+participant "Login Function\n(user-auth)" as LoginFunc
+database "Azure SQL\nDatabase" as DB
+
+User -> Browser: Navigate to /login
+Browser -> WebApp: GET /login
+WebApp -> Browser: Render login.html
+
+User -> Browser: Enter credentials\n(email, password)
+Browser -> WebApp: POST /login\n{email, password}
+
+WebApp -> LoginFunc: POST /api/login\n{email, password}
+activate LoginFunc
+
+LoginFunc -> DB: SELECT * FROM shopusers\nWHERE email = ?
+activate DB
+DB --> LoginFunc: User record\n{id, email, password_hash, name}
+deactivate DB
+
+LoginFunc -> LoginFunc: Verify password\nPBKDF2-HMAC-SHA256
+
+alt Password Valid
+    LoginFunc -> LoginFunc: Generate session_token\n(secrets.token_urlsafe(32))
+    
+    LoginFunc -> DB: INSERT INTO sessions\n(user_id, session_token, expires_at)
+    activate DB
+    DB --> LoginFunc: Session created
+    deactivate DB
+    
+    LoginFunc --> WebApp: 200 OK\n{session_token, user_id, name}
+    deactivate LoginFunc
+    
+    WebApp -> Browser: Set-Cookie: session_token\nRedirect to /
+    Browser -> User: Show homepage (logged in)
+    
+else Password Invalid
+    LoginFunc --> WebApp: 401 Unauthorized\n{error: "Invalid credentials"}
+    deactivate LoginFunc
+    
+    WebApp -> Browser: Render login.html\nwith error message
+    Browser -> User: Display error
+end
+
+@enduml

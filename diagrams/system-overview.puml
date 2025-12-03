@@ -1,0 +1,45 @@
+@startuml ShopSphere System Overview
+title ShopSphere E-Commerce Platform - System Overview
+
+skinparam defaultFontSize 13
+skinparam roundcorner 10
+
+actor "Users" as users
+
+package "Frontend" #E8F5E9 {
+    component "Flask Web App\n(Python 3.13)" as webapp
+}
+
+package "Backend - Azure Functions" #E3F2FD {
+    component "User Auth" as auth
+    component "Product Catalog" as catalog
+    component "Payment & Orders" as payment
+}
+
+package "Data Layer" #FFF3E0 {
+    database "Azure SQL\nDatabase" as db
+    storage "Blob Storage\n(Images)" as blob
+}
+
+package "CI/CD" #F3E5F5 {
+    component "GitHub Actions" as cicd
+}
+
+' Relationships
+users --> webapp : HTTPS
+
+webapp --> auth : Login/Signup
+webapp --> catalog : Browse/Cart
+webapp --> payment : Checkout/Orders
+
+auth --> db
+catalog --> db
+catalog --> blob
+payment --> db
+
+cicd --> webapp : Deploy
+cicd --> auth : Deploy
+cicd --> catalog : Deploy
+cicd --> payment : Deploy
+
+@enduml

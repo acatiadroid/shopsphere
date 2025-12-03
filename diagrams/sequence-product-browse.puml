@@ -1,0 +1,99 @@
+@startuml ShopSphere Product Browsing and Cart
+title Product Browsing & Add to Cart Workflow
+
+actor User
+participant "Web Browser" as Browser
+participant "Flask App\n(webapp)" as WebApp
+participant "GetProducts\n(product-catalog)" as GetProductsFunc
+participant "AddToCart\n(product-catalog)" as AddToCartFunc
+participant "Azure Blob\nStorage CDN" as BlobCDN
+database "Azure SQL\nDatabase" as DB
+
+User -> Browser: Navigate to homepage
+Browser -> WebApp: GET /
+
+WebApp -> GetProductsFunc: GET /api/products
+activate GetProductsFunc
+
+GetProductsFunc -> DB: SELECT * FROM products\nWHERE stock_quantity > 0\nORDER BY created_at DESC
+activate DB
+DB --> GetProductsFunc: Product list\n{id, name, price, image_url, stock}
+deactivate DB
+
+GetProductsFunc --> WebApp: 200 OK\n[{product}, {product}, ...]
+deactivate GetProductsFunc
+
+WebApp -> Browser: Render index.html\nwith product grid
+
+loop For each product image
+    Browser -> BlobCDN: GET /cdn/{image_filename}
+    BlobCDN --> Browser: Product image (cached)
+end
+
+Browser -> User: Display products
+
+User -> Browser: Click product card
+Browser -> WebApp: GET /product/<product_id>
+
+WebApp -> GetProductsFunc: GET /api/product/<product_id>
+activate GetProductsFunc
+
+GetProductsFunc -> DB: SELECT * FROM products\nWHERE id = ?
+activate DB
+DB --> GetProductsFunc: Product details
+deactivate DB
+
+GetProductsFunc --> WebApp: 200 OK\n{product_details}
+deactivate GetProductsFunc
+
+WebApp -> Browser: Render product_detail.html
+Browser -> BlobCDN: GET /cdn/{product_image}
+BlobCDN --> Browser: Full-size product image
+
+User -> Browser: Click "Add to Cart"\nSelect quantity
+
+Browser -> WebApp: POST /cart/add\n{product_id, quantity}
+
+WebApp -> WebApp: Verify session token
+
+WebApp -> AddToCartFunc: POST /api/cart/add\n{user_id, product_id, quantity}
+activate AddToCartFunc
+
+AddToCartFunc -> DB: SELECT stock_quantity FROM products\nWHERE id = ?
+activate DB
+DB --> AddToCartFunc: {stock_quantity}
+deactivate DB
+
+alt Stock Available
+    AddToCartFunc -> DB: SELECT * FROM cart_items\nWHERE user_id = ? AND product_id = ?
+    activate DB
+    DB --> AddToCartFunc: Existing cart item (if any)
+    deactivate DB
+    
+    alt Item Already in Cart
+        AddToCartFunc -> DB: UPDATE cart_items\nSET quantity = quantity + ?\nWHERE user_id = ? AND product_id = ?
+        activate DB
+        DB --> AddToCartFunc: Updated
+        deactivate DB
+    else New Item
+        AddToCartFunc -> DB: INSERT INTO cart_items\n(user_id, product_id, quantity)
+        activate DB
+        DB --> AddToCartFunc: Inserted
+        deactivate DB
+    end
+    
+    AddToCartFunc --> WebApp: 200 OK\n{cart_item_id, message: "Added to cart"}
+    deactivate AddToCartFunc
+    
+    WebApp -> Browser: JSON response or redirect
+    Browser -> User: Show "Added to cart"\nnotification
+    
+else Out of Stock
+    AddToCartFunc --> WebApp: 400 Bad Request\n{error: "Out of stock"}
+    deactivate AddToCartFunc
+    
+    WebApp -> Browser: Error message
+    Browser -> User: Display stock error
+end
+
+@enduml

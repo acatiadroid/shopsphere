@@ -1,0 +1,106 @@
+---
+title: ShopSphere Database Schema
+---
+erDiagram
+    SHOPUSERS ||--o{ SESSIONS : "has"
+    SHOPUSERS ||--o{ PAYMENT_METHODS : "owns"
+    SHOPUSERS ||--o{ CART_ITEMS : "has"
+    SHOPUSERS ||--o{ WISHLIST : "maintains"
+    SHOPUSERS ||--o{ ORDERS : "places"
+    SHOPUSERS ||--o{ TRANSACTIONS : "makes"
+    
+    PRODUCTS ||--o{ CART_ITEMS : "contains"
+    PRODUCTS ||--o{ WISHLIST : "saved_in"
+    PRODUCTS ||--o{ ORDER_ITEMS : "includes"
+    
+    ORDERS ||--|{ ORDER_ITEMS : "contains"
+    ORDERS ||--o{ TRANSACTIONS : "paid_by"
+    
+    SHOPUSERS {
+        int id PK "Identity"
+        nvarchar_255 email UK "Unique"
+        nvarchar_500 password "PBKDF2 Hash"
+        nvarchar_255 name
+        bit is_admin "Default 0"
+        datetime2 created_at
+        datetime2 updated_at
+    }
+    
+    SESSIONS {
+        int id PK "Identity"
+        int user_id FK
+        nvarchar_500 session_token UK "Unique"
+        datetime2 expires_at
+        datetime2 created_at
+    }
+    
+    PAYMENT_METHODS {
+        int id PK "Identity"
+        int user_id FK
+        nvarchar_50 type
+        nvarchar_4 card_last4
+        nvarchar_50 card_brand
+        nvarchar_2 expiry_month
+        nvarchar_4 expiry_year
+        bit is_default "Default 0"
+        datetime2 created_at
+    }
+    
+    PRODUCTS {
+        int id PK "Identity"
+        nvarchar_255 name UK "Unique"
+        nvarchar_max description
+        decimal_10_2 price
+        int stock_quantity "Default 0"
+        nvarchar_100 category
+        nvarchar_500 image_url
+        datetime2 created_at
+        datetime2 updated_at
+    }
+    
+    CART_ITEMS {
+        int id PK "Identity"
+        int user_id FK
+        int product_id FK
+        int quantity
+        datetime2 added_at
+    }
+    
+    WISHLIST {
+        int id PK "Identity"
+        int user_id FK
+        int product_id FK
+        datetime2 added_at
+    }
+    
+    ORDERS {
+        int id PK "Identity"
+        int user_id FK
+        decimal_10_2 total_amount
+        nvarchar_50 status
+        nvarchar_500 shipping_address
+        nvarchar_100 tracking_number UK "Unique"
+        datetime2 created_at
+        datetime2 paid_at
+        datetime2 shipped_at
+        datetime2 delivered_at
+    }
+    
+    ORDER_ITEMS {
+        int id PK "Identity"
+        int order_id FK
+        int product_id FK
+        int quantity
+        decimal_10_2 price_at_purchase
+    }
+    
+    TRANSACTIONS {
+        int id PK "Identity"
+        int order_id FK
+        int user_id FK
+        decimal_10_2 amount
+        nvarchar_100 payment_method
+        nvarchar_50 status
+        nvarchar_255 transaction_id UK "Unique"
+        datetime2 created_at
+    }

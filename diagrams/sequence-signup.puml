@@ -1,0 +1,54 @@
+@startuml ShopSphere Signup Sequence
+title User Registration (Signup) Workflow
+
+actor User
+participant "Web Browser" as Browser
+participant "Flask App\n(webapp)" as WebApp
+participant "Signup Function\n(user-auth)" as SignupFunc
+database "Azure SQL\nDatabase" as DB
+
+User -> Browser: Navigate to /signup
+Browser -> WebApp: GET /signup
+WebApp -> Browser: Render signup.html
+
+User -> Browser: Enter details\n(email, password, name)
+Browser -> WebApp: POST /signup\n{email, password, name}
+
+WebApp -> SignupFunc: POST /api/signup\n{email, password, name}
+activate SignupFunc
+
+SignupFunc -> SignupFunc: Validate input\n(email format, password strength)
+
+SignupFunc -> DB: SELECT id FROM shopusers\nWHERE email = ?
+activate DB
+DB --> SignupFunc: Check if email exists
+deactivate DB
+
+alt Email Already Exists
+    SignupFunc --> WebApp: 400 Bad Request\n{error: "Email already registered"}
+    WebApp -> Browser: Render signup.html\nwith error
+    Browser -> User: Display error
+    
+else Email Available
+    SignupFunc -> SignupFunc: Hash password\nPBKDF2-HMAC-SHA256\n(100,000 iterations)
+    
+    SignupFunc -> DB: INSERT INTO shopusers\n(email, password, name, is_admin)
+    activate DB
+    DB --> SignupFunc: User created\n{user_id}
+    deactivate DB
+    
+    SignupFunc -> SignupFunc: Generate session_token\n(secrets.token_urlsafe(32))
+    
+    SignupFunc -> DB: INSERT INTO sessions\n(user_id, session_token, expires_at)
+    activate DB
+    DB --> SignupFunc: Session created
+    deactivate DB
+    
+    SignupFunc --> WebApp: 201 Created\n{session_token, user_id, name}
+    deactivate SignupFunc
+    
+    WebApp -> Browser: Set-Cookie: session_token\nRedirect to /
+    Browser -> User: Show homepage (logged in)
+end
+
+@enduml

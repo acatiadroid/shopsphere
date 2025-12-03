@@ -1,0 +1,64 @@
+@startuml ShopSphere Deployment Diagram
+!define AZURE_PUML https://raw.githubusercontent.com/plantuml-stdlib/Azure-PlantUML/release/2-1/dist
+!include AZURE_PUML/AzureCommon.puml
+!include AZURE_PUML/AzureSimplified.puml
+!include AZURE_PUML/Web/AzureWebApp.puml
+!include AZURE_PUML/Compute/AzureFunction.puml
+!include AZURE_PUML/Databases/AzureSqlDatabase.puml
+!include AZURE_PUML/Storage/AzureBlobStorage.puml
+
+title ShopSphere - Azure Deployment Architecture
+
+actor "Developer" as dev
+actor "Users" as users
+
+package "GitHub" {
+    storage "Repository\nmain branch" as repo
+    component "GitHub Actions" as actions {
+        queue "Build & Test" as build
+        queue "Package" as package
+        queue "Deploy" as deploy
+    }
+}
+
+package "Azure - Norway East" {
+    
+    AzureWebApp(webapp, "Flask App", "shopsphere")
+    
+    package "Azure Functions" {
+        AzureFunction(userAuth, "User Auth", "")
+        AzureFunction(payment, "Payment", "")
+        AzureFunction(catalog, "Catalog", "")
+    }
+    
+    AzureSqlDatabase(sqldb, "SQL Database", "9 Tables")
+    AzureBlobStorage(blob, "Blob Storage", "Images")
+}
+
+' Development workflow
+dev -right-> repo : 1. Push commit
+
+' CI/CD Pipeline
+repo -right-> build : 2. Trigger workflow
+build -right-> package : 3. Build artifacts
+package -down-> deploy : 4. Create release
+
+' Deployment to Azure
+deploy -down-> webapp : 5a. Deploy Flask App
+deploy -down-> userAuth : 5b. Deploy Functions
+deploy -down-> payment : 5b. Deploy Functions
+deploy -down-> catalog : 5b. Deploy Functions
+
+' Runtime connections
+users -down-> webapp : HTTPS
+
+webapp -down-> userAuth : API
+webapp -down-> payment : API
+webapp -down-> catalog : API
+
+userAuth -down-> sqldb : SQL
+payment -down-> sqldb : SQL
+catalog -down-> sqldb : SQL
+catalog -down-> blob : Images
+
+@enduml
