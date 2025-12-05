@@ -22,7 +22,7 @@
         AzureWebApp(webapp, "Flask Web App", "Python 3.13")
     }
 
-    package "Business Logic Layer" {
+    package "Backend Logic Layer" {
         AzureFunction(userAuth, "User Auth", "Python 3.12") {
             component "7 endpoints" as authEndpoints
         }

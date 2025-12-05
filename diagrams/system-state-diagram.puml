@@ -1,0 +1,62 @@
+@startuml ShopSphere System State Diagram
+
+title ShopSphere - System State Diagram
+
+[*] --> Anonymous
+
+state Anonymous {
+  Anonymous : Browsing Products
+}
+
+state Authenticated {
+  Authenticated : Logged In
+  Authenticated : Access to Cart/Wishlist
+}
+
+state Shopping {
+  Shopping : Managing Cart
+  Shopping : Updating Items
+}
+
+state Checkout {
+  Checkout : Reviewing Order
+  Checkout : Entering Shipping Info
+}
+
+state ProcessingPayment {
+  ProcessingPayment : Validating Payment
+  ProcessingPayment : Creating Transaction
+}
+
+state OrderPlaced {
+  OrderPlaced : Order Confirmed
+  OrderPlaced : Tracking Number Generated
+}
+
+state OrderLifecycle {
+  [*] --> Pending
+  Pending --> Processing : Start Processing
+  Processing --> Shipped : Ship Order
+  Shipped --> Delivered : Complete Delivery
+  Delivered --> [*]
+}
+
+Anonymous --> Authenticated : signup / login
+Authenticated --> Anonymous : logout
+
+Authenticated --> Shopping : add to cart
+Shopping --> Authenticated : continue shopping
+Shopping --> Checkout : proceed to checkout
+
+Checkout --> ProcessingPayment : confirm order
+Checkout --> Shopping : back to cart
+
+ProcessingPayment --> OrderPlaced : payment success
+ProcessingPayment --> Checkout : payment failed / retry
+
+OrderPlaced --> OrderLifecycle : order created
+OrderPlaced --> Authenticated : continue shopping
+
+OrderLifecycle --> Authenticated : view order history
+
+@enduml
